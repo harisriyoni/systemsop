@@ -12,9 +12,24 @@ return new class extends Migration
             $table->id();
             $table->string('code')->unique();
             $table->string('title');
-            $table->string('department'); // Produksi / QA / Logistik / etc
+            $table->string('department'); // Produksi / QA / Logistik / dll
             $table->string('product')->nullable();
             $table->string('line')->nullable();
+
+            // ✅ FOTO ARRAY + DESKRIPSI (JSON)
+            // contoh:
+            // [
+            //   {"path":"sops/a.jpg","desc":"Cover SOP"},
+            //   {"path":"sops/b.jpg","desc":"Lampiran"}
+            // ]
+            $table->json('photos')->nullable();
+
+            // ✅ PIN AKSES (opsional)
+            $table->string('pin')->nullable();
+
+            // ✅ AKSES PUBLIK / TIDAK
+            $table->boolean('is_public')->default(false);
+            $table->index('is_public');
 
             $table->enum('status', ['draft','waiting_approval','approved','expired'])
                 ->default('draft');
