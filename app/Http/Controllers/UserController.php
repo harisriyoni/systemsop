@@ -6,7 +6,6 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Schema;
 
 class UserController extends Controller
 {
@@ -14,6 +13,11 @@ class UserController extends Controller
      * Role list (single source of truth).
      */
     private array $roles = ['admin','produksi','qa','logistik','operator'];
+
+    /**
+     * Status list.
+     */
+    private array $statuses = ['active','inactive','suspended'];
 
     /**
      * List user + search/filter.
@@ -24,12 +28,15 @@ class UserController extends Controller
 
         $q = User::query()->latest();
 
-        // search name/email
+        // search name/email/username/employee_code/phone
         if ($request->filled('q')) {
             $kw = trim($request->q);
             $q->where(function ($sub) use ($kw) {
                 $sub->where('name', 'like', "%{$kw}%")
-                    ->orWhere('email', 'like', "%{$kw}%");
+                    ->orWhere('email', 'like', "%{$kw}%")
+                    ->orWhere('username', 'like', "%{$kw}%")
+                    ->orWhere('employee_code', 'like', "%{$kw}%")
+                    ->orWhere('phone', 'like', "%{$kw}%");
             });
         }
 
@@ -38,27 +45,34 @@ class UserController extends Controller
             $q->where('role', $request->role);
         }
 
-        // filter active/inactive (optional kalau kolom ada)
-        if (Schema::hasColumn('users', 'is_active') && $request->filled('is_active')) {
-            $q->where('is_active', (bool)$request->is_active);
+        // filter status
+        if ($request->filled('status')) {
+            $q->where('status', $request->status);
         }
 
-        // optional filter department / line kalau user punya kolom ini
-        if (Schema::hasColumn('users','department') && $request->filled('department')) {
+        // filter department
+        if ($request->filled('department')) {
             $dept = trim($request->department);
             $q->where('department','like',"%{$dept}%");
         }
-        if (Schema::hasColumn('users','line') && $request->filled('line')) {
-            $line = trim($request->line);
-            $q->where('line','like',"%{$line}%");
+
+        // filter company/site optional
+        if ($request->filled('company')) {
+            $cmp = trim($request->company);
+            $q->where('company','like',"%{$cmp}%");
+        }
+        if ($request->filled('site')) {
+            $site = trim($request->site);
+            $q->where('site','like',"%{$site}%");
         }
 
         $users = $q->paginate(12)->withQueryString();
 
         return view('users.index', [
-            'users' => $users,
-            'roles' => $this->roles,
-            'filters' => $request->only(['q','role','is_active','department','line'])
+            'users'   => $users,
+            'roles'   => $this->roles,
+            'statuses'=> $this->statuses,
+            'filters' => $request->only(['q','role','status','department','company','site'])
         ]);
     }
 
@@ -68,7 +82,10 @@ class UserController extends Controller
     public function create()
     {
         $this->authorizeAdmin();
-        return view('users.create', ['roles' => $this->roles]);
+        return view('users.create', [
+            'roles'    => $this->roles,
+            'statuses' => $this->statuses,
+        ]);
     }
 
     /**
@@ -79,23 +96,34 @@ class UserController extends Controller
         $this->authorizeAdmin();
 
         $data = $request->validate([
-            'name'       => ['required','string','max:100'],
-            'email'      => ['required','email','max:255','unique:users,email'],
-            'role'       => ['required', Rule::in($this->roles)],
-            'password'   => ['required','string','min:6','max:255'],
+            'name'          => ['required','string','max:100'],
+            'username'      => ['nullable','string','max:60','unique:users,username'],
+            'email'         => ['required','email','max:255','unique:users,email'],
+            'password'      => ['required','string','min:6','max:255'],
 
-            // optional cols
-            'department' => [Schema::hasColumn('users','department') ? 'nullable' : 'sometimes','string','max:100'],
-            'line'       => [Schema::hasColumn('users','line') ? 'nullable' : 'sometimes','string','max:100'],
+            'employee_code' => ['nullable','string','max:50'],
+            'phone'         => ['nullable','string','max:30'],
+            'company'       => ['nullable','string','max:120'],
+            'department'    => ['nullable','string','max:120'],
+            'position'      => ['nullable','string','max:120'],
+            'site'          => ['nullable','string','max:120'],
+            'join_date'     => ['nullable','date'],
+
+            'role'          => ['required', Rule::in($this->roles)],
+            'status'        => ['required', Rule::in($this->statuses)],
+
+            'notes'         => ['nullable','string'],
+            'avatar_path'   => ['nullable','string','max:255'], // kalau admin isi path manual
         ], [
-            'role.in' => 'Role tidak valid.',
+            'role.in'   => 'Role tidak valid.',
+            'status.in' => 'Status tidak valid.',
         ]);
 
         $data['password'] = Hash::make($data['password']);
 
-        if (Schema::hasColumn('users','is_active')) {
-            $data['is_active'] = true;
-        }
+        // audit
+        $data['created_by'] = auth()->id();
+        $data['updated_by'] = auth()->id();
 
         User::create($data);
 
@@ -105,12 +133,16 @@ class UserController extends Controller
     }
 
     /**
-     * Form edit.
+     * Form edit user.
      */
     public function edit(User $user)
     {
         $this->authorizeAdmin();
-        return view('users.edit', ['user' => $user, 'roles' => $this->roles]);
+        return view('users.edit', [
+            'user'     => $user,
+            'roles'    => $this->roles,
+            'statuses' => $this->statuses,
+        ]);
     }
 
     /**
@@ -122,17 +154,27 @@ class UserController extends Controller
         $this->authorizeAdmin();
 
         $data = $request->validate([
-            'name'     => ['required','string','max:100'],
-            'email'    => ['required','email','max:255', Rule::unique('users','email')->ignore($user->id)],
-            'role'     => ['required', Rule::in($this->roles)],
-            'password' => ['nullable','string','min:6','max:255'],
+            'name'          => ['required','string','max:100'],
+            'username'      => ['nullable','string','max:60', Rule::unique('users','username')->ignore($user->id)],
+            'email'         => ['required','email','max:255', Rule::unique('users','email')->ignore($user->id)],
+            'password'      => ['nullable','string','min:6','max:255'],
 
-            // optional cols
-            'department' => [Schema::hasColumn('users','department') ? 'nullable' : 'sometimes','string','max:100'],
-            'line'       => [Schema::hasColumn('users','line') ? 'nullable' : 'sometimes','string','max:100'],
-            'is_active'  => [Schema::hasColumn('users','is_active') ? 'nullable' : 'sometimes','boolean'],
+            'employee_code' => ['nullable','string','max:50'],
+            'phone'         => ['nullable','string','max:30'],
+            'company'       => ['nullable','string','max:120'],
+            'department'    => ['nullable','string','max:120'],
+            'position'      => ['nullable','string','max:120'],
+            'site'          => ['nullable','string','max:120'],
+            'join_date'     => ['nullable','date'],
+
+            'role'          => ['required', Rule::in($this->roles)],
+            'status'        => ['required', Rule::in($this->statuses)],
+
+            'notes'         => ['nullable','string'],
+            'avatar_path'   => ['nullable','string','max:255'],
         ], [
-            'role.in' => 'Role tidak valid.',
+            'role.in'   => 'Role tidak valid.',
+            'status.in' => 'Status tidak valid.',
         ]);
 
         // safety: jangan bikin admin terakhir jadi non-admin
@@ -143,12 +185,23 @@ class UserController extends Controller
             }
         }
 
+        // safety: jangan bikin admin terakhir jadi inactive/suspended
+        if ($user->role === 'admin' && in_array($data['status'], ['inactive','suspended'], true)) {
+            $activeAdminCount = User::where('role','admin')->where('status','active')->count();
+            if ($activeAdminCount <= 1) {
+                return back()->with('error', 'Tidak bisa menonaktifkan admin terakhir.');
+            }
+        }
+
         // kalau password diisi -> update
         if (!empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         } else {
             unset($data['password']);
         }
+
+        // audit
+        $data['updated_by'] = auth()->id();
 
         $user->update($data);
 
@@ -158,8 +211,7 @@ class UserController extends Controller
     }
 
     /**
-     * Quick reset password (opsional route kalau mau).
-     * Bisa kamu panggil dari edit page pakai form kecil.
+     * Quick reset password.
      */
     public function resetPassword(Request $request, User $user)
     {
@@ -170,39 +222,37 @@ class UserController extends Controller
         ]);
 
         $user->password = Hash::make($data['password']);
+        $user->updated_by = auth()->id();
         $user->save();
 
         return back()->with('success', 'Password user berhasil direset.');
     }
 
     /**
-     * Toggle active/inactive (opsional route).
-     * Lebih aman daripada delete.
+     * Toggle status active <-> inactive.
+     * (pengganti toggleActive versi lama)
      */
     public function toggleActive(User $user)
     {
         $this->authorizeAdmin();
 
-        if (!Schema::hasColumn('users','is_active')) {
-            return back()->with('error', 'Kolom is_active belum ada.');
-        }
-
         // safety: jangan matikan admin terakhir
-        if ($user->role === 'admin' && $user->is_active) {
-            $activeAdminCount = User::where('role','admin')->where('is_active',true)->count();
+        if ($user->role === 'admin' && $user->status === 'active') {
+            $activeAdminCount = User::where('role','admin')->where('status','active')->count();
             if ($activeAdminCount <= 1) {
                 return back()->with('error', 'Tidak bisa menonaktifkan admin terakhir.');
             }
         }
 
-        $user->is_active = !$user->is_active;
+        $user->status = ($user->status === 'active') ? 'inactive' : 'active';
+        $user->updated_by = auth()->id();
         $user->save();
 
         return back()->with('success', 'Status user berhasil diubah.');
     }
 
     /**
-     * Delete user (hard delete).
+     * Delete user (soft delete karena model pakai SoftDeletes).
      */
     public function destroy(User $user)
     {

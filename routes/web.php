@@ -9,6 +9,7 @@ use App\Http\Controllers\CheckSheetController;
 use App\Http\Controllers\QrCenterController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ProfileController;
 
 // =========================
 // AUTH
@@ -47,6 +48,37 @@ Route::middleware('auth')->group(function () {
 
     // DASHBOARD
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+
+    // =========================
+    // PROFILE (SELF SERVICE)
+    // =========================
+    Route::prefix('profile')->name('profile.')->group(function () {
+
+        // lihat profile sendiri
+        Route::get('/', [ProfileController::class, 'show'])
+            ->name('show');
+
+        // form edit profile
+        Route::get('/edit', [ProfileController::class, 'edit'])
+            ->name('edit');
+
+        // update data profile (nama, phone, dept, dll)
+        Route::patch('/', [ProfileController::class, 'update'])
+            ->name('update');
+
+        // ganti password sendiri
+        Route::patch('/password', [ProfileController::class, 'updatePassword'])
+            ->name('password.update');
+
+        // upload / ganti avatar
+        Route::post('/avatar', [ProfileController::class, 'updateAvatar'])
+            ->name('avatar.update');
+
+        // hapus avatar (balik default)
+        Route::delete('/avatar', [ProfileController::class, 'deleteAvatar'])
+            ->name('avatar.delete');
+    });
 
 
     // =========================
@@ -229,13 +261,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/{user}/edit', [UserController::class, 'edit'])->name('edit');
         Route::patch('/{user}', [UserController::class, 'update'])->name('update');
 
-        // === tambahan dari controller full ===
         Route::post('/{user}/reset-password', [UserController::class, 'resetPassword'])
             ->name('reset_password');
 
         Route::post('/{user}/toggle-active', [UserController::class, 'toggleActive'])
             ->name('toggle_active');
-        // ================================
 
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
     });

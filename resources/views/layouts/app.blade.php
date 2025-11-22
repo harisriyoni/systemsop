@@ -36,7 +36,7 @@
         ($needAction['sop_pending_qa'] ?? 0) +
         ($needAction['sop_pending_logistik'] ?? 0);
 
-    // ✅ FIX badge CS: 1 key aja biar gak 0 terus
+    // FIX badge CS: 1 key aja biar gak 0 terus
     $badgeCs = $needAction['cs_pending'] ?? 0;
 
     $user = auth()->user();
@@ -47,6 +47,23 @@
     $logoFile = public_path($logoPath);
     $hasLogo  = file_exists($logoFile);
     $logoUrl  = asset($logoPath);
+
+    // ================= AVATAR USER =================
+    // prioritas: avatar_path (migration baru)
+    $photo = null;
+    if ($user) {
+        if (!empty($user->avatar_path)) {
+            $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($user->avatar_path);
+        } elseif (!empty($user->photo_url)) {
+            $photo = $user->photo_url;
+        } elseif (!empty($user->avatar_url)) {
+            $photo = $user->avatar_url;
+        } elseif (!empty($user->profile_photo_path)) {
+            $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($user->profile_photo_path);
+        }
+    }
+
+    $notifCount = $notifCount ?? 0;
 @endphp
 
 <body class="bg-slate-50 min-h-screen text-slate-800">
@@ -123,6 +140,28 @@
                     </svg>
                 </div>
                 <span x-show="!collapsed" x-transition class="font-medium">Dashboard</span>
+            </a>
+
+            {{-- PROFILE GROUP (BARU) --}}
+            <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
+                <span>Account</span>
+                <span class="h-px flex-1 bg-slate-200"></span>
+            </div>
+
+            {{-- Profile --}}
+            <a href="{{ route('profile.show') }}"
+               class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
+                {{ request()->routeIs('profile.*')
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                <div class="w-9 h-9 rounded-lg grid place-items-center
+                    {{ request()->routeIs('profile.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                    <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                </div>
+                <span x-show="!collapsed" x-transition class="font-medium">Profile Saya</span>
             </a>
 
             {{-- SOP GROUP --}}
@@ -367,19 +406,6 @@
             </div>
 
             {{-- RIGHT AREA: notif + user --}}
-            @php
-                $photo =
-                    $user->photo_url
-                    ?? $user->avatar_url
-                    ?? ($user->profile_photo_path ?? null);
-
-                if ($photo && !str_starts_with($photo, 'http')) {
-                    $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($photo);
-                }
-
-                $notifCount = $notifCount ?? 0;
-            @endphp
-
             <div class="flex items-center gap-3">
                 {{-- Notif bell --}}
                 <button
@@ -443,8 +469,9 @@
                             <div class="text-xs text-slate-500 truncate">{{ $user->email }}</div>
                         </div>
 
-                        <a href="#" class="block px-4 py-2 text-sm hover:bg-slate-50">
-                            Profile (soon)
+                        {{-- link profile beneran --}}
+                        <a href="{{ route('profile.show') }}" class="block px-4 py-2 text-sm hover:bg-slate-50">
+                            Profile
                         </a>
 
                         <form method="POST" action="{{ route('logout') }}">
