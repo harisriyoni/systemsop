@@ -40,6 +40,13 @@
     $badgeCs = $needAction['cs_pending'] ?? 0;
 
     $user = auth()->user();
+
+    // ================= LOGO SIDEBAR =================
+    // default: public/assets/images/dipsol.png
+    $logoPath = config('app.company_logo', 'assets/images/dipsol.png'); // relative public path
+    $logoFile = public_path($logoPath);
+    $hasLogo  = file_exists($logoFile);
+    $logoUrl  = asset($logoPath);
 @endphp
 
 <body class="bg-slate-50 min-h-screen text-slate-800">
@@ -67,11 +74,17 @@
         <div class="px-4 py-4 border-b border-slate-200 bg-gradient-to-r from-[#05727d] to-[#04616a] text-white">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="h-9 w-9 rounded-xl bg-white/15 grid place-items-center shadow">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
+                    <div class="h-9 w-9 rounded-xl bg-white/15 grid place-items-center shadow overflow-hidden">
+                        @if($hasLogo)
+                            <img src="{{ $logoUrl }}" alt="logo"
+                                 class="h-7 w-7 object-contain">
+                        @else
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                        @endif
                     </div>
+
                     <div x-show="!collapsed" x-transition>
                         <div class="text-sm font-semibold leading-tight">PT. DIPSOL INDONESIA</div>
                         <div class="text-[11px] opacity-90">SOP + CheckFlow</div>
@@ -111,7 +124,6 @@
                 </div>
                 <span x-show="!collapsed" x-transition class="font-medium">Dashboard</span>
             </a>
-
 
             {{-- SOP GROUP --}}
             <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
@@ -167,7 +179,6 @@
 
                 <span x-show="!collapsed" x-transition class="flex-1">Approval SOP</span>
 
-                {{-- badge --}}
                 <span x-show="!collapsed" x-transition
                       class="text-[11px] px-2 py-0.5 rounded-full
                       {{ $badgeSop>0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500' }}">
@@ -175,7 +186,6 @@
                 </span>
             </a>
             @endif
-
 
             {{-- CHECK SHEET GROUP --}}
             <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
@@ -215,7 +225,7 @@
             </a>
             @endif
 
-            {{-- Submissions (aktif kalau TANPA status filter) --}}
+            {{-- Submissions --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
             <a href="{{ route('check_sheets.submissions') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
@@ -234,7 +244,7 @@
             </a>
             @endif
 
-            {{-- Approval Check Sheet (aktif kalau status=submitted) --}}
+            {{-- Approval Check Sheet --}}
             @if($user && $user->isRole(['admin','qa','logistik']))
             <a href="{{ route('check_sheets.submissions', ['status'=>'submitted']) }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
@@ -261,7 +271,6 @@
             </a>
             @endif
 
-
             {{-- REPORT GROUP --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
             <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
@@ -284,7 +293,6 @@
                 <span x-show="!collapsed" x-transition>Report & Analytics</span>
             </a>
             @endif
-
 
             {{-- USER ACCESS GROUP --}}
             @if($user && $user->isRole(['admin']))
@@ -310,7 +318,6 @@
                 <span x-show="!collapsed" x-transition>Manajemen User</span>
             </a>
             @endif
-
 
             {{-- QR GROUP --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
