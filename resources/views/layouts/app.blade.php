@@ -18,7 +18,7 @@
     <style>
         .sidebar-scroll::-webkit-scrollbar { width: 6px; }
         .sidebar-scroll::-webkit-scrollbar-thumb {
-            background: #bfdbfe;
+            background: #a8ced2; /* brand-200 */
             border-radius: 999px;
         }
     </style>
@@ -64,7 +64,7 @@
         ]">
 
         <!-- Brand -->
-        <div class="px-4 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-600 to-sky-500 text-white">
+        <div class="px-4 py-4 border-b border-slate-200 bg-gradient-to-r from-[#05727d] to-[#04616a] text-white">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="h-9 w-9 rounded-xl bg-white/15 grid place-items-center shadow">
@@ -100,10 +100,10 @@
             <a href="{{ route('dashboard') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('dashboard')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('dashboard') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                    {{ request()->routeIs('dashboard') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round"
                               d="M3 12l9-9 9 9v8a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1z" />
@@ -123,10 +123,10 @@
             <a href="{{ route('sop.index') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('sop.index','sop.show','sop.edit')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('sop.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                    {{ request()->routeIs('sop.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
                     </svg>
@@ -139,10 +139,10 @@
             <a href="{{ route('sop.create') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('sop.create')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('sop.create') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                    {{ request()->routeIs('sop.create') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
@@ -156,10 +156,10 @@
             <a href="{{ route('sop.approval.index') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('sop.approval.*')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('sop.approval.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                    {{ request()->routeIs('sop.approval.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
@@ -187,10 +187,10 @@
             <a href="{{ route('check_sheets.index') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('check_sheets.index','check_sheets.edit')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('check_sheets.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                    {{ request()->routeIs('check_sheets.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h6M9 9h6M9 13h6M9 17h6M5 5h.01M5 9h.01M5 13h.01M5 17h.01" />
                     </svg>
@@ -203,10 +203,10 @@
             <a href="{{ route('check_sheets.create') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('check_sheets.create')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('check_sheets.create') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                    {{ request()->routeIs('check_sheets.create') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
@@ -220,12 +220,12 @@
             <a href="{{ route('check_sheets.submissions') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('check_sheets.submissions*') && !request('status')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
                     {{ request()->routeIs('check_sheets.submissions*') && !request('status')
                         ? 'bg-white/15'
-                        : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                        : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v6H4zM4 14h16v6H4z" />
                     </svg>
@@ -239,12 +239,12 @@
             <a href="{{ route('check_sheets.submissions', ['status'=>'submitted']) }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('check_sheets.submissions*') && request('status')=='submitted'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
                     {{ request()->routeIs('check_sheets.submissions*') && request('status')=='submitted'
                         ? 'bg-white/15'
-                        : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                        : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
                         <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -272,10 +272,10 @@
             <a href="{{ route('reports.index') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('reports.*')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('reports.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                    {{ request()->routeIs('reports.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18" />
                         <path stroke-linecap="round" stroke-linejoin="round" d="M7 15l3-3 3 2 5-5" />
@@ -296,10 +296,10 @@
             <a href="{{ route('users.index') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('users.*')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('users.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                    {{ request()->routeIs('users.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
                         <circle cx="9" cy="7" r="4" />
@@ -322,10 +322,10 @@
             <a href="{{ route('qr_center.index') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                 {{ request()->routeIs('qr_center.*')
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('qr_center.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-blue-100' }}">
+                    {{ request()->routeIs('qr_center.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round"
                               d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h3v3h-3zM17 17h3v3h-3z" />
@@ -346,7 +346,7 @@
             <div class="flex items-center gap-3">
                 <!-- Hamburger (mobile) -->
                 <button
-                    class="md:hidden p-2 rounded-lg hover:bg-slate-100 text-blue-600"
+                    class="md:hidden p-2 rounded-lg hover:bg-slate-100 text-[#05727d]"
                     @click="mobileOpen=true"
                     aria-label="Open sidebar">
                     <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -403,9 +403,9 @@
                         {{-- Avatar --}}
                         @if($photo)
                             <img src="{{ $photo }}" alt="avatar"
-                                 class="h-9 w-9 rounded-full object-cover ring-2 ring-blue-100">
+                                 class="h-9 w-9 rounded-full object-cover ring-2 ring-[#cde3e5]">
                         @else
-                            <div class="h-9 w-9 rounded-full bg-blue-100 text-blue-700 grid place-items-center font-bold">
+                            <div class="h-9 w-9 rounded-full bg-[#cde3e5] text-[#045058] grid place-items-center font-bold">
                                 {{ strtoupper(substr($user->name ?? 'U', 0, 1)) }}
                             </div>
                         @endif
