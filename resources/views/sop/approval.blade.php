@@ -39,7 +39,7 @@
       return this.rejectRouteTpl.replace(':id', this.rejectId);
     }
   }"
-  class="bg-white rounded-2xl border border-blue-100 shadow-sm p-5"
+  class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm p-5"
 >
 
   {{-- ================= HEADER ================= --}}
@@ -48,19 +48,19 @@
       <h2 class="text-base font-semibold text-slate-900">Approval SOP</h2>
       <p class="text-xs text-slate-500 mt-1">
         Role Anda:
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#05727d]/5 text-[#05727d] font-semibold">
           {{ strtoupper($role) }}
         </span>
       </p>
       <p class="text-[11px] text-slate-400 mt-1">
         Menampilkan SOP dengan status
-        <span class="font-semibold text-blue-700">Menunggu Persetujuan</span>.
+        <span class="font-semibold text-[#05727d]">Menunggu Persetujuan</span>.
       </p>
     </div>
 
     <div class="text-xs text-slate-500">
       <div>Jumlah SOP di antrean:</div>
-      <div class="text-right text-sm font-semibold text-blue-700">
+      <div class="text-right text-sm font-semibold text-[#05727d]">
         {{ $sops->total() }} SOP
       </div>
     </div>
@@ -68,19 +68,19 @@
 
   {{-- ================= SEARCH ================= --}}
   <form method="GET" action="{{ route('sop.approval.index') }}"
-        class="bg-blue-50/60 border border-blue-100 rounded-xl p-3 mb-4">
+        class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-3 mb-4">
     <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
       <div class="md:col-span-3">
         <label class="block mb-1 text-slate-600">Cari SOP</label>
         <input type="text" name="q" value="{{ request('q') }}"
                placeholder="Cari kode / judul SOP..."
                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                      focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                      focus:ring-4 focus:ring-[#05727d]/15 focus:border-[#05727d] outline-none">
       </div>
       <div class="flex items-end gap-2">
         <button
           class="inline-flex items-center justify-center w-full px-4 py-2 rounded-lg
-                 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition">
+                 bg-[#05727d] hover:bg-[#05727d]/90 text-white font-semibold text-xs transition">
           Terapkan
         </button>
         <a href="{{ route('sop.approval.index') }}"
@@ -93,9 +93,9 @@
   </form>
 
   {{-- ================= TABLE ================= --}}
-  <div class="overflow-x-auto rounded-xl border border-blue-100">
+  <div class="overflow-x-auto rounded-xl border border-[#05727d]/20">
     <table class="min-w-full text-xs bg-white">
-      <thead class="bg-blue-50 text-blue-700 text-[11px] uppercase tracking-wider">
+      <thead class="bg-[#05727d]/5 text-[#05727d] text-[11px] uppercase tracking-wider">
         <tr>
           <th class="px-4 py-3 text-left whitespace-nowrap">Kode</th>
           <th class="px-4 py-3 text-left">Judul & Info</th>
@@ -105,14 +105,14 @@
         </tr>
       </thead>
 
-      <tbody class="divide-y divide-blue-50">
+      <tbody class="divide-y divide-[#05727d]/10">
         @forelse ($sops as $sop)
           @php
             $photoCount  = is_array($sop->photos ?? null) ? count($sop->photos) : 0;
             $isCanApprove = $canApprove($sop);
           @endphp
 
-          <tr class="hover:bg-blue-50/40 transition">
+          <tr class="hover:bg-[#05727d]/5 transition">
             {{-- KODE --}}
             <td class="px-4 py-3 align-top whitespace-nowrap">
               <div class="font-semibold text-slate-900 flex items-center gap-2">
@@ -131,7 +131,7 @@
 
               <div class="mt-1 flex items-center gap-1.5 text-[11px]">
                 <span class="px-2 py-0.5 rounded-full border
-                  {{ $sop->is_public ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200' }}">
+                  {{ $sop->is_public ? 'bg-[#05727d]/5 text-[#05727d] border-[#05727d]/30' : 'bg-slate-50 text-slate-600 border-slate-200' }}">
                   {{ $sop->is_public ? 'Publik' : 'Privat' }}
                 </span>
 
@@ -174,7 +174,7 @@
 
             {{-- DEPARTEMEN --}}
             <td class="px-4 py-3 align-top whitespace-nowrap">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[11px] font-semibold">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#05727d]/5 text-[#05727d] border border-[#05727d]/20 text-[11px] font-semibold">
                 {{ $sop->department }}
               </span>
             </td>
@@ -221,8 +221,8 @@
                 {{-- Detail --}}
                 <a href="{{ route('sop.show', $sop) }}"
                    class="inline-flex items-center px-3 py-1.5 rounded-lg
-                          bg-white border border-blue-200 text-blue-700
-                          hover:bg-blue-50 font-semibold text-[11px] transition">
+                          bg-white border border-[#05727d]/30 text-[#05727d]
+                          hover:bg-[#05727d]/5 font-semibold text-[11px] transition">
                   Lihat Detail
                 </a>
 
@@ -254,16 +254,16 @@
                   @if(\Route::has('sop.history'))
                     <a href="{{ route('sop.history', $sop) }}"
                        class="inline-flex items-center px-2.5 py-1 rounded-lg
-                              bg-blue-50 text-blue-700 border border-blue-100
-                              hover:bg-blue-100 font-semibold text-[11px] transition">
+                              bg-[#05727d]/5 text-[#05727d] border border-[#05727d]/20
+                              hover:bg-[#05727d]/10 font-semibold text-[11px] transition">
                       History
                     </a>
                   @endif
                   @if(\Route::has('sop.versions'))
                     <a href="{{ route('sop.versions', $sop) }}"
                        class="inline-flex items-center px-2.5 py-1 rounded-lg
-                              bg-blue-50 text-blue-700 border border-blue-100
-                              hover:bg-blue-100 font-semibold text-[11px] transition">
+                              bg-[#05727d]/5 text-[#05727d] border border-[#05727d]/20
+                              hover:bg-[#05727d]/10 font-semibold text-[11px] transition">
                       Versions
                     </a>
                   @endif
@@ -275,7 +275,9 @@
                     @csrf
                     <button
                       class="inline-flex items-center px-3 py-1.5 rounded-lg
-                             {{ $isCanApprove ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed' }}
+                             {{ $isCanApprove
+                                  ? 'bg-[#05727d] hover:bg-[#05727d]/90 text-white'
+                                  : 'bg-slate-200 text-slate-500 cursor-not-allowed' }}
                              font-semibold text-[11px] shadow-sm transition"
                       {{ $isCanApprove ? '' : 'disabled' }}
                       onclick="return confirm('Yakin menyetujui SOP ini?');"
@@ -332,7 +334,7 @@
   >
     <div class="absolute inset-0 bg-black/40" @click="openReject=false"></div>
 
-    <div class="relative w-full max-w-lg bg-white rounded-2xl border border-blue-100 shadow-2xl overflow-hidden">
+    <div class="relative w-full max-w-lg bg-white rounded-2xl border border-[#05727d]/20 shadow-2xl overflow-hidden">
       <div class="bg-gradient-to-r from-rose-600 to-rose-500 text-white px-5 py-4">
         <div class="flex items-start justify-between">
           <div>

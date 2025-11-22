@@ -28,12 +28,12 @@
 >
 
   {{-- ================= HEADER ================= --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm p-5">
+  <div class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm p-5">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
         <h2 class="text-base font-semibold text-slate-900">Edit SOP</h2>
         <p class="text-xs text-slate-500 mt-1">
-          Kode: <span class="font-semibold text-blue-700">{{ $sop->code }}</span>
+          Kode: <span class="font-semibold text-[#05727d]">{{ $sop->code }}</span>
           • Versi: <span class="font-semibold">v{{ $sop->version ?? 1 }}</span>
         </p>
         <p class="text-[11px] text-slate-400 mt-1">
@@ -59,14 +59,14 @@
         method="POST"
         action="{{ route('sop.update', $sop) }}"
         enctype="multipart/form-data"
-        class="bg-white rounded-2xl border border-blue-100 shadow-sm p-5 space-y-5"
+        class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm p-5 space-y-5"
   >
     @csrf
     @method('PUT')
 
     {{-- Error global --}}
     @if($errors->any())
-      <div class="text-xs rounded-lg bg-blue-50 border border-blue-200 text-blue-800 px-3 py-2">
+      <div class="text-xs rounded-lg bg-[#05727d]/5 border border-[#05727d]/30 text-[#05727d] px-3 py-2">
         <div class="font-semibold mb-1">Periksa kembali input:</div>
         <ul class="list-disc pl-4 space-y-0.5">
           @foreach($errors->all() as $err)
@@ -77,9 +77,9 @@
     @endif
 
     {{-- ===== Informasi Utama ===== --}}
-    <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
-      <div class="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+    <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
+      <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+        <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
         Informasi Utama
       </div>
 
@@ -88,7 +88,9 @@
           <label class="block text-xs text-slate-600 mb-1">Kode SOP <span class="text-rose-500">*</span></label>
           <input type="text" name="code" value="{{ old('code', $sop->code) }}"
                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                        {{ $errors->has('code') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}"
+                        {{ $errors->has('code')
+                            ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                            : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
                  required>
           @error('code') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
         </div>
@@ -97,7 +99,9 @@
           <label class="block text-xs text-slate-600 mb-1">Judul SOP <span class="text-rose-500">*</span></label>
           <input type="text" name="title" value="{{ old('title', $sop->title) }}"
                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                        {{ $errors->has('title') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}"
+                        {{ $errors->has('title')
+                            ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                            : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
                  required>
           @error('title') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
         </div>
@@ -106,7 +110,9 @@
           <label class="block text-xs text-slate-600 mb-1">Departemen <span class="text-rose-500">*</span></label>
           <input type="text" name="department" value="{{ old('department', $sop->department) }}"
                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                        {{ $errors->has('department') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}"
+                        {{ $errors->has('department')
+                            ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                            : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
                  required>
           @error('department') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
         </div>
@@ -115,15 +121,15 @@
           <label class="block text-xs text-slate-600 mb-1">Produk (Opsional)</label>
           <input type="text" name="product" value="{{ old('product', $sop->product) }}"
                  class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                        focus:ring-blue-100 focus:border-blue-500">
+                        focus:ring-[#05727d]/15 focus:border-[#05727d]">
         </div>
       </div>
     </div>
 
     {{-- ===== Detail Operasional ===== --}}
-    <div class="bg-white border border-blue-100 rounded-xl p-4">
-      <div class="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+    <div class="bg-white border border-[#05727d]/20 rounded-xl p-4">
+      <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+        <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
         Detail Operasional
       </div>
 
@@ -132,31 +138,33 @@
           <label class="block text-xs text-slate-600 mb-1">Lini Produksi (Opsional)</label>
           <input type="text" name="line" value="{{ old('line', $sop->line) }}"
                  class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                        focus:ring-blue-100 focus:border-blue-500">
+                        focus:ring-[#05727d]/15 focus:border-[#05727d]">
         </div>
 
         <div>
           <label class="block text-xs text-slate-600 mb-1">Tanggal Berlaku Mulai</label>
           <input type="date" name="effective_from" value="{{ old('effective_from', optional($sop->effective_from)->toDateString()) }}"
                  class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                        focus:ring-blue-100 focus:border-blue-500">
+                        focus:ring-[#05727d]/15 focus:border-[#05727d]">
         </div>
 
         <div class="md:col-span-2">
           <label class="block text-xs text-slate-600 mb-1">Tanggal Berlaku Sampai</label>
           <input type="date" name="effective_to" value="{{ old('effective_to', optional($sop->effective_to)->toDateString()) }}"
                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                        {{ $errors->has('effective_to') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}">
+                        {{ $errors->has('effective_to')
+                            ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                            : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}">
           @error('effective_to') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
         </div>
       </div>
     </div>
 
     {{-- ===== FOTO LAMA (BISA DIHAPUS) ===== --}}
-    <div class="bg-blue-50/40 border border-blue-100 rounded-xl p-4">
+    <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
       <div class="flex items-center justify-between mb-3">
-        <div class="text-xs font-semibold text-blue-700 flex items-center gap-2">
-          <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+        <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
+          <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
           Foto/Lampiran Lama
         </div>
         <div class="text-[11px] text-slate-500">
@@ -173,7 +181,7 @@
               $url = $path ? Storage::disk('public')->url($path) : null;
             @endphp
 
-            <label class="bg-white border border-blue-100 rounded-xl p-3 flex gap-3 cursor-pointer hover:bg-blue-50/60 transition">
+            <label class="bg-white border border-[#05727d]/20 rounded-xl p-3 flex gap-3 cursor-pointer hover:bg-[#05727d]/5 transition">
               <input type="checkbox" name="remove_photos[]" value="{{ $path }}"
                      class="mt-1 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500">
 
@@ -207,22 +215,22 @@
     </div>
 
     {{-- ===== FOTO BARU (BISA TAMBAH) ===== --}}
-    <div class="bg-blue-50/40 border border-blue-100 rounded-xl p-4">
+    <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
       <div class="flex items-center justify-between mb-3">
-        <div class="text-xs font-semibold text-blue-700 flex items-center gap-2">
-          <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+        <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
+          <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
           Tambah Foto Baru
         </div>
         <button type="button"
                 @click="addNewPhoto()"
-                class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold shadow-sm">
+                class="px-3 py-1.5 rounded-lg bg-[#05727d] hover:bg-[#05727d]/90 text-white text-[11px] font-semibold shadow-sm">
           + Tambah Foto
         </button>
       </div>
 
       <div class="flex gap-3 overflow-x-auto pb-2 flex-nowrap">
         <template x-for="(p, i) in newPhotos" :key="p.id">
-          <div class="bg-white border border-blue-100 rounded-xl p-3 min-w-[280px] md:min-w-[320px] shrink-0">
+          <div class="bg-white border border-[#05727d]/20 rounded-xl p-3 min-w-[280px] md:min-w-[320px] shrink-0">
             <div class="flex items-start gap-3">
               <div class="h-16 w-16 rounded-lg bg-slate-50 border border-slate-200 overflow-hidden grid place-items-center shrink-0">
                 <template x-if="p.preview">
@@ -238,16 +246,16 @@
               <div class="flex-1">
                 <label class="block text-[11px] text-slate-600 mb-1">File Foto</label>
                 <label class="flex items-center justify-between gap-3 w-full cursor-pointer
-                              rounded-lg border border-dashed border-blue-200 bg-white px-3 py-2 text-sm
-                              hover:bg-blue-50 transition">
+                              rounded-lg border border-dashed border-[#05727d]/30 bg-white px-3 py-2 text-sm
+                              hover:bg-[#05727d]/5 transition">
                   <div class="flex items-center gap-2 text-slate-600">
-                    <svg class="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg class="w-4 h-4 text-[#05727d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4-4a3 3 0 014 0l4 4M2 20h20M2 12l5-5a3 3 0 014 0l3 3m7-7v8"/>
                     </svg>
                     <span x-show="!p.name" class="text-[12px]">Pilih foto</span>
                     <span x-show="p.name" class="font-semibold text-slate-800 text-[12px]" x-text="p.name"></span>
                   </div>
-                  <span class="text-[11px] text-blue-700 font-semibold">Upload</span>
+                  <span class="text-[11px] text-[#05727d] font-semibold">Upload</span>
                   <input type="file" name="photos[]" accept="image/*" class="hidden"
                          @change="setNewPhoto(i, $event)">
                 </label>
@@ -256,7 +264,7 @@
                   <label class="block text-[11px] text-slate-600 mb-1">Deskripsi Foto</label>
                   <input type="text" name="photo_desc[]"
                          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                                focus:ring-blue-100 focus:border-blue-500"
+                                focus:ring-[#05727d]/15 focus:border-[#05727d]"
                          placeholder="Cover / Step / Area kerja">
                 </div>
               </div>
@@ -278,16 +286,16 @@
     </div>
 
     {{-- ===== AKSES SOP ===== --}}
-    <div class="bg-white border border-blue-100 rounded-xl p-4">
-      <div class="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+    <div class="bg-white border border-[#05727d]/20 rounded-xl p-4">
+      <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+        <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
         Akses SOP
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label class="flex items-center gap-2">
           <input id="is_public" type="checkbox" name="is_public" value="1"
-                 class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                 class="h-4 w-4 rounded border-slate-300 text-[#05727d] focus:ring-[#05727d]"
                  {{ old('is_public', $sop->is_public) ? 'checked' : '' }}>
           <span class="text-xs text-slate-700">
             Jadikan SOP publik (bisa dibuka via link/QR tanpa login)
@@ -298,7 +306,7 @@
           <label class="block text-xs text-slate-600 mb-1">PIN Akses (Opsional)</label>
           <input type="text" name="pin" value="{{ old('pin', $sop->pin) }}"
                  class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                        focus:ring-blue-100 focus:border-blue-500"
+                        focus:ring-[#05727d]/15 focus:border-[#05727d]"
                  placeholder="Contoh: 1234">
           <div class="text-[11px] text-slate-400 mt-1">
             Jika publik + PIN diisi, SOP perlu PIN sebelum dibuka.
@@ -312,7 +320,7 @@
       <label class="block text-xs text-slate-600 mb-1">Isi / Deskripsi SOP (Opsional)</label>
       <textarea name="content" rows="7"
                 class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none
-                       focus:ring-blue-100 focus:border-blue-500"
+                       focus:ring-[#05727d]/15 focus:border-[#05727d]"
                 placeholder="Tuliskan isi SOP atau ringkasan langkah-langkahnya...">{{ old('content', $sop->content) }}</textarea>
     </div>
 
@@ -332,7 +340,7 @@
 
         <button
           type="submit"
-          class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm">
+          class="px-5 py-2 rounded-lg bg-[#05727d] hover:bg-[#05727d]/90 text-white text-xs font-semibold shadow-sm">
           Simpan Perubahan
         </button>
       </div>
