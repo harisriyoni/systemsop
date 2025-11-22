@@ -21,7 +21,7 @@
   {{-- =======================
      HEADER CARD
   ======================= --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm p-5">
+  <div class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm p-5">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
         <h2 class="text-base font-semibold text-slate-900">Daftar Form Check Sheet</h2>
@@ -34,7 +34,7 @@
         <button
           type="button"
           @click="openCreateModal()"
-          class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#05727d] hover:bg-[#0894a0] text-white text-xs font-semibold shadow-sm transition"
         >
           <span class="text-lg leading-none">+</span>
           Tambah Form
@@ -47,7 +47,7 @@
     ======================= --}}
     @if(Route::has('check_sheets.index'))
       <form method="GET" action="{{ route('check_sheets.index') }}"
-            class="mt-4 bg-blue-50/60 border border-blue-100 rounded-xl p-3">
+            class="mt-4 bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-3">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
 
           <div>
@@ -55,7 +55,7 @@
             <input type="text" name="q" value="{{ request('q') }}"
                    placeholder="Cari judul form..."
                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                          focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                          focus:ring-4 focus:ring-[#b7e9ec] focus:border-[#05727d] outline-none">
           </div>
 
           <div>
@@ -63,7 +63,7 @@
             <input type="text" name="department" value="{{ request('department') }}"
                    placeholder="Produksi / QA / Logistik..."
                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                          focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                          focus:ring-4 focus:ring-[#b7e9ec] focus:border-[#05727d] outline-none">
           </div>
 
           <div>
@@ -71,7 +71,7 @@
             <input type="text" name="product" value="{{ request('product') }}"
                    placeholder="Opsional"
                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                          focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                          focus:ring-4 focus:ring-[#b7e9ec] focus:border-[#05727d] outline-none">
           </div>
 
           <div>
@@ -79,14 +79,14 @@
             <input type="text" name="line" value="{{ request('line') }}"
                    placeholder="Opsional"
                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                          focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                          focus:ring-4 focus:ring-[#b7e9ec] focus:border-[#05727d] outline-none">
           </div>
 
           <div>
             <label class="block mb-1 text-slate-600">Status</label>
             <select name="status"
                     class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                           focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                           focus:ring-4 focus:ring-[#b7e9ec] focus:border-[#05727d] outline-none">
               <option value="">Semua Status</option>
               <option value="draft"  {{ request('status')=='draft' ? 'selected' : '' }}>Draf</option>
               <option value="active" {{ request('status')=='active' ? 'selected' : '' }}>Aktif</option>
@@ -97,7 +97,7 @@
           <div class="md:col-span-5 flex items-end gap-2 justify-end">
             <button
               class="inline-flex items-center justify-center px-4 py-2 rounded-lg
-                     bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition">
+                     bg-[#05727d] hover:bg-[#0894a0] text-white font-semibold text-xs transition">
               Terapkan
             </button>
             <a href="{{ route('check_sheets.index') }}"
@@ -116,10 +116,10 @@
   {{-- =======================
      TABLE FORM
   ======================= --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
+  <div class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
       <table class="min-w-full text-xs bg-white">
-        <thead class="bg-blue-50 text-blue-700 text-[11px] uppercase tracking-wider sticky top-0 z-10">
+        <thead class="bg-[#e0f4f6] text-[#04535b] text-[11px] uppercase tracking-wider sticky top-0 z-10">
           <tr>
             <th class="px-4 py-3 text-left">Judul Form</th>
             <th class="px-4 py-3 text-left whitespace-nowrap">Departemen</th>
@@ -131,18 +131,18 @@
           </tr>
         </thead>
 
-        <tbody class="divide-y divide-blue-50">
+        <tbody class="divide-y divide-[#e0f4f6]">
           @forelse ($forms as $form)
             @php
               $statusMap = [
                 'draft'    => ['label' => 'Draf',    'class' => 'bg-slate-50 text-slate-700 border-slate-200'],
-                'active'   => ['label' => 'Aktif',   'class' => 'bg-blue-600 text-white border-blue-600'],
+                'active'   => ['label' => 'Aktif',   'class' => 'bg-[#05727d] text-white border-[#05727d]'],
                 'inactive' => ['label' => 'Nonaktif','class' => 'bg-slate-100 text-slate-500 border-slate-200'],
               ];
               $st = $statusMap[$form->status] ?? ['label'=>$form->status, 'class'=>'bg-slate-50 text-slate-700 border-slate-200'];
             @endphp
 
-            <tr class="hover:bg-blue-50/40 transition">
+            <tr class="hover:bg-[#e0f4f6]/80 transition">
               <td class="px-4 py-3">
                 <div class="font-medium text-slate-900">{{ $form->title }}</div>
                 <div class="text-[11px] text-slate-400 mt-0.5">
@@ -151,7 +151,7 @@
               </td>
 
               <td class="px-4 py-3 whitespace-nowrap">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[11px] font-semibold">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#e0f4f6] text-[#04535b] border border-[#b7e9ec] text-[11px] font-semibold">
                   {{ $form->department }}
                 </span>
               </td>
@@ -181,8 +181,8 @@
                   @if(Route::has('check_sheets.show'))
                     <a href="{{ route('check_sheets.show', $form) }}"
                        class="inline-flex items-center px-3 py-1.5 rounded-lg
-                              bg-white border border-blue-200 text-blue-700
-                              hover:bg-blue-50 font-semibold text-[11px] transition">
+                              bg-white border border-[#b7e9ec] text-[#04535b]
+                              hover:bg-[#e0f4f6] font-semibold text-[11px] transition">
                       Lihat
                     </a>
                   @endif
@@ -201,8 +201,8 @@
                   @if($canManage && Route::has('check_sheets.builder'))
                     <a href="{{ route('check_sheets.builder', $form) }}"
                        class="inline-flex items-center px-3 py-1.5 rounded-lg
-                              bg-blue-50 border border-blue-100 text-blue-700
-                              hover:bg-blue-100 font-semibold text-[11px] transition">
+                              bg-[#e0f4f6] border border-[#b7e9ec] text-[#04535b]
+                              hover:bg-[#cdebef] font-semibold text-[11px] transition">
                       Builder
                     </a>
                   @endif
@@ -211,8 +211,8 @@
                   @if($form->status === 'active' && Route::has('check_sheets.fill'))
                     <a href="{{ route('check_sheets.fill', $form) }}"
                        class="inline-flex items-center px-3 py-1.5 rounded-lg
-                              bg-white border border-blue-200 text-blue-700
-                              hover:bg-blue-50 font-semibold text-[11px] transition">
+                              bg-white border border-[#b7e9ec] text-[#04535b]
+                              hover:bg-[#e0f4f6] font-semibold text-[11px] transition">
                       Isi Form
                     </a>
                   @else
@@ -227,7 +227,7 @@
                         @csrf
                         <button
                           class="inline-flex items-center px-3 py-1.5 rounded-lg
-                                 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[11px] transition"
+                                 bg-[#05727d] hover:bg-[#0894a0] text-white font-semibold text-[11px] transition"
                           onclick="return confirm('Aktifkan form ini?');"
                         >
                           Aktifkan
@@ -272,7 +272,7 @@
           @empty
             <tr>
               <td colspan="7" class="px-4 py-12 text-center">
-                <div class="mx-auto w-14 h-14 rounded-2xl bg-blue-50 grid place-items-center text-blue-700 mb-3">
+                <div class="mx-auto w-14 h-14 rounded-2xl bg-[#e0f4f6] grid place-items-center text-[#04535b] mb-3">
                   <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h6M9 9h6M9 13h6M9 17h6M5 5h.01M5 9h.01M5 13h.01M5 17h.01"/>
                   </svg>
@@ -287,7 +287,7 @@
     </div>
 
     {{-- PAGINATION --}}
-    <div class="px-4 py-3 border-t border-blue-100">
+    <div class="px-4 py-3 border-t border-[#05727d]/20">
       {{ $forms->appends(request()->query())->links() }}
     </div>
   </div>
@@ -302,8 +302,8 @@
   >
     <div class="absolute inset-0 bg-black/40" @click="openCreate=false"></div>
 
-    <div class="relative w-full max-w-2xl bg-white rounded-2xl border border-blue-100 shadow-2xl overflow-hidden">
-      <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 text-white">
+    <div class="relative w-full max-w-2xl bg-white rounded-2xl border border-[#05727d]/20 shadow-2xl overflow-hidden">
+      <div class="bg-gradient-to-r from-[#05727d] to-[#0894a0] px-6 py-4 text-white">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">
@@ -313,7 +313,7 @@
             </div>
             <div>
               <h3 class="text-base font-semibold leading-tight">Tambah Form Check Sheet</h3>
-              <p class="text-xs text-blue-100">Buat form baru untuk operator isi harian.</p>
+              <p class="text-xs text-[#d5f3f4]">Buat form baru untuk operator isi harian.</p>
             </div>
           </div>
           <button @click="openCreate=false" class="p-2 rounded-lg hover:bg-white/10">✕</button>
@@ -324,7 +324,7 @@
 
         {{-- Error global --}}
         @if ($errors->any())
-          <div class="text-xs rounded-lg bg-blue-50 border border-blue-200 text-blue-800 px-3 py-2">
+          <div class="text-xs rounded-lg bg-[#e0f4f6] border border-[#b7e9ec] text-[#04535b] px-3 py-2">
             <div class="font-semibold mb-1">Periksa kembali input:</div>
             <ul class="list-disc pl-4 space-y-0.5">
               @foreach($errors->all() as $err)
@@ -343,7 +343,9 @@
               <label class="block text-xs text-slate-600 mb-1">Judul Form <span class="text-rose-500">*</span></label>
               <input x-ref="titleInput" type="text" name="title" value="{{ old('title') }}"
                      class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                            {{ $errors->has('title') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}"
+                            {{ $errors->has('title')
+                                ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                                : 'border-slate-200 focus:ring-[#b7e9ec] focus:border-[#05727d]' }}"
                      placeholder="Contoh: Check Sheet Harian OHT" required>
               @error('title') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
             </div>
@@ -353,7 +355,9 @@
               <label class="block text-xs text-slate-600 mb-1">Departemen <span class="text-rose-500">*</span></label>
               <input type="text" name="department" value="{{ old('department') }}"
                      class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                            {{ $errors->has('department') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}"
+                            {{ $errors->has('department')
+                                ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                                : 'border-slate-200 focus:ring-[#b7e9ec] focus:border-[#05727d]' }}"
                      placeholder="QA / Logistik / Produksi" required>
               @error('department') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
             </div>
@@ -363,7 +367,7 @@
               <label class="block text-xs text-slate-600 mb-1">Produk (Opsional)</label>
               <input type="text" name="product" value="{{ old('product') }}"
                      class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                            focus:ring-blue-100 focus:border-blue-500"
+                            focus:ring-[#b7e9ec] focus:border-[#05727d]"
                      placeholder="Nickel Matte / Packing ...">
               @error('product') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
             </div>
@@ -373,7 +377,7 @@
               <label class="block text-xs text-slate-600 mb-1">Lini Produksi (Opsional)</label>
               <input type="text" name="line" value="{{ old('line') }}"
                      class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                            focus:ring-blue-100 focus:border-blue-500"
+                            focus:ring-[#b7e9ec] focus:border-[#05727d]"
                      placeholder="Line A / Line B">
               @error('line') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
             </div>
@@ -383,7 +387,7 @@
               <label class="block text-xs text-slate-600 mb-1">Status Awal (Opsional)</label>
               <select name="status"
                       class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none
-                             focus:ring-blue-100 focus:border-blue-500">
+                             focus:ring-[#b7e9ec] focus:border-[#05727d]">
                 <option value="">Default sistem</option>
                 <option value="draft" {{ old('status')=='draft' ? 'selected' : '' }}>Draf</option>
                 <option value="active" {{ old('status')=='active' ? 'selected' : '' }}>Aktif</option>
@@ -399,7 +403,7 @@
               <label class="block text-xs text-slate-600 mb-1">Deskripsi / Instruksi Singkat</label>
               <textarea name="description" rows="4"
                         class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                               focus:ring-blue-100 focus:border-blue-500"
+                               focus:ring-[#b7e9ec] focus:border-[#05727d]"
                         placeholder="Instruksi singkat untuk operator saat mengisi form...">{{ old('description') }}</textarea>
               @error('description') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
             </div>
@@ -409,7 +413,7 @@
       </div>
 
       {{-- FOOTER ACTION --}}
-      <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-blue-100 px-6 py-3">
+      <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-[#05727d]/20 px-6 py-3">
         <div class="flex items-center justify-end gap-2">
           <button type="button"
                   @click="openCreate=false"
@@ -421,13 +425,13 @@
           <button type="submit"
                   form="checkSheetCreateForm"
                   name="save_draft" value="1"
-                  class="px-4 py-2 rounded-lg bg-white border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50">
+                  class="px-4 py-2 rounded-lg bg-white border border-[#b7e9ec] text-[#04535b] text-xs font-semibold hover:bg-[#e0f4f6]">
             Simpan Draft
           </button>
 
           <button type="submit"
                   form="checkSheetCreateForm"
-                  class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm">
+                  class="px-5 py-2 rounded-lg bg-[#05727d] hover:bg-[#0894a0] text-white text-xs font-semibold shadow-sm">
             Simpan Form
           </button>
         </div>

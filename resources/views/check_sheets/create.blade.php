@@ -9,8 +9,8 @@
 <div class="max-w-3xl mx-auto space-y-4">
 
   {{-- HEADER CARD --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
-    <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-5 py-4 text-white">
+  <div class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm overflow-hidden">
+    <div class="bg-gradient-to-r from-[#05727d] to-[#0894a0] px-5 py-4 text-white">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">
@@ -20,7 +20,7 @@
           </div>
           <div>
             <h2 class="text-base font-semibold leading-tight">Create Check Sheet Form</h2>
-            <p class="text-xs text-blue-100 mt-0.5">
+            <p class="text-xs text-[#d5f3f4] mt-0.5">
               Buat form baru untuk operator isi harian.
             </p>
           </div>
@@ -44,7 +44,7 @@
 
         {{-- Error Global --}}
         @if ($errors->any())
-          <div class="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 px-3 py-2 text-xs">
+          <div class="rounded-lg bg-[#05727d]/10 border border-[#05727d]/40 text-[#05727d] px-3 py-2 text-xs">
             <div class="font-semibold mb-1">Periksa kembali input:</div>
             <ul class="list-disc pl-4 space-y-0.5">
               @foreach($errors->all() as $err)
@@ -55,9 +55,9 @@
         @endif
 
         {{-- SECTION: Informasi Utama --}}
-        <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
-          <div class="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-2">
-            <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+        <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
+          <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+            <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
             Informasi Utama
           </div>
 
@@ -71,7 +71,9 @@
               <input type="text" name="title" value="{{ old('title') }}" required
                      placeholder="Contoh: Check Sheet Harian OHT"
                      class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                            {{ $errors->has('title') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}">
+                            {{ $errors->has('title') ? 
+                              'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 
+                              'border-slate-200 focus:ring-[#b7e9ec] focus:border-[#05727d]' }}">
               @error('title')
                 <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div>
               @enderror
@@ -85,7 +87,9 @@
               <input type="text" name="department" value="{{ old('department') }}" required
                      placeholder="QA / Logistik / Produksi"
                      class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                            {{ $errors->has('department') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}">
+                            {{ $errors->has('department') ? 
+                              'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 
+                              'border-slate-200 focus:ring-[#b7e9ec] focus:border-[#05727d]' }}">
               @error('department')
                 <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div>
               @enderror
@@ -97,10 +101,7 @@
               <input type="text" name="product" value="{{ old('product') }}"
                      placeholder="Nickel Matte / Packing ..."
                      class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                            focus:ring-blue-100 focus:border-blue-500">
-              @error('product')
-                <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div>
-              @enderror
+                            focus:ring-[#b7e9ec] focus:border-[#05727d]">
             </div>
 
             {{-- Line --}}
@@ -109,18 +110,15 @@
               <input type="text" name="line" value="{{ old('line') }}"
                      placeholder="Line A / Line B"
                      class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                            focus:ring-blue-100 focus:border-blue-500">
-              @error('line')
-                <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div>
-              @enderror
+                            focus:ring-[#b7e9ec] focus:border-[#05727d]">
             </div>
 
-            {{-- Status (opsional, aman kalau controller belum pakai) --}}
+            {{-- Status --}}
             <div class="md:col-span-2">
               <label class="block text-xs text-slate-600 mb-1">Status Awal (Opsional)</label>
               <select name="status"
                       class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none
-                             focus:ring-blue-100 focus:border-blue-500">
+                             focus:ring-[#b7e9ec] focus:border-[#05727d]">
                 <option value="">Default sesuai sistem</option>
                 <option value="draft" {{ old('status')=='draft' ? 'selected' : '' }}>Draf</option>
                 <option value="active" {{ old('status')=='active' ? 'selected' : '' }}>Aktif</option>
@@ -140,18 +138,16 @@
           <textarea name="description" rows="5"
                     placeholder="Instruksi singkat untuk operator saat mengisi form..."
                     class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none
-                           focus:ring-blue-100 focus:border-blue-500">{{ old('description') }}</textarea>
-          @error('description')
-            <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div>
-          @enderror
+                           focus:ring-[#b7e9ec] focus:border-[#05727d]">{{ old('description') }}</textarea>
         </div>
 
       </form>
     </div>
 
     {{-- FOOTER ACTION --}}
-    <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-blue-100 px-5 py-3">
+    <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-[#05727d]/20 px-5 py-3">
       <div class="flex items-center justify-between gap-2">
+
         @if(Route::has('check_sheets.index'))
           <a href="{{ route('check_sheets.index') }}"
              class="px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50">
@@ -162,20 +158,22 @@
         @endif
 
         <div class="flex items-center gap-2">
-          {{-- Simpan Draft (opsional) --}}
+
+          {{-- Simpan Draft --}}
           <button type="submit"
                   form="checkSheetCreateForm"
                   name="save_draft" value="1"
-                  class="px-4 py-2 rounded-lg bg-white border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-50">
+                  class="px-4 py-2 rounded-lg bg-white border border-[#05727d]/40 text-[#05727d] text-xs font-semibold hover:bg-[#05727d]/10">
             Simpan Draft
           </button>
 
-          {{-- Simpan + normal submit --}}
+          {{-- Simpan --}}
           <button type="submit"
                   form="checkSheetCreateForm"
-                  class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm">
+                  class="px-5 py-2 rounded-lg bg-[#05727d] hover:bg-[#0894a0] text-white text-xs font-semibold shadow-sm">
             Simpan Form
           </button>
+
         </div>
       </div>
     </div>

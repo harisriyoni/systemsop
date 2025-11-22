@@ -33,7 +33,7 @@
   {{-- =======================
      HEADER + FILTER
   ======================= --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm p-5">
+  <div class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm p-5">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
         <h2 class="text-base font-semibold text-slate-900">Daftar SOP</h2>
@@ -46,7 +46,7 @@
         <button
           type="button"
           @click="openCreate = true"
-          class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#05727d] hover:bg-[#05727d]/90 text-white text-xs font-semibold shadow-sm transition"
         >
           <span class="text-lg leading-none">+</span>
           Tambah SOP
@@ -56,7 +56,7 @@
 
     {{-- FILTER / SEARCH --}}
     <form method="GET" action="{{ route('sop.index') }}"
-          class="mt-4 bg-blue-50/60 border border-blue-100 rounded-xl p-3">
+          class="mt-4 bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-3">
       <div class="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
 
         <div class="md:col-span-2">
@@ -64,7 +64,7 @@
           <input type="text" name="q" value="{{ request('q') }}"
                  placeholder="Cari kode / judul SOP..."
                  class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                        focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                        focus:ring-4 focus:ring-[#05727d]/15 focus:border-[#05727d] outline-none">
         </div>
 
         <div>
@@ -72,7 +72,7 @@
           <input type="text" name="department" value="{{ request('department') }}"
                  placeholder="Produksi / QA / Logistik..."
                  class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                        focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                        focus:ring-4 focus:ring-[#05727d]/15 focus:border-[#05727d] outline-none">
         </div>
 
         <div>
@@ -80,7 +80,7 @@
           <input type="text" name="product" value="{{ request('product') }}"
                  placeholder="Produk..."
                  class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                        focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                        focus:ring-4 focus:ring-[#05727d]/15 focus:border-[#05727d] outline-none">
         </div>
 
         <div>
@@ -88,14 +88,14 @@
           <input type="text" name="line" value="{{ request('line') }}"
                  placeholder="Line A/B..."
                  class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                        focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                        focus:ring-4 focus:ring-[#05727d]/15 focus:border-[#05727d] outline-none">
         </div>
 
         <div>
           <label class="block mb-1 text-slate-600">Status</label>
           <select name="status"
                   class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                         focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                         focus:ring-4 focus:ring-[#05727d]/15 focus:border-[#05727d] outline-none">
             <option value="">Semua Status</option>
             <option value="draft" {{ request('status')=='draft' ? 'selected' : '' }}>Draf</option>
             <option value="waiting_approval" {{ request('status')=='waiting_approval' ? 'selected' : '' }}>Menunggu Persetujuan</option>
@@ -107,7 +107,7 @@
         <div class="flex items-end gap-2 md:col-span-6 justify-end">
           <button
             class="inline-flex items-center justify-center px-4 py-2 rounded-lg
-                   bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition">
+                   bg-[#05727d] hover:bg-[#05727d]/90 text-white font-semibold text-xs transition">
             Terapkan
           </button>
           <a href="{{ route('sop.index') }}"
@@ -125,10 +125,10 @@
   {{-- =======================
      TABLE SOP
   ======================= --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm p-0 overflow-hidden">
+  <div class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm p-0 overflow-hidden">
     <div class="overflow-x-auto">
       <table class="min-w-full text-xs bg-white">
-        <thead class="bg-blue-50 text-blue-700 text-[11px] uppercase tracking-wider sticky top-0 z-10">
+        <thead class="bg-[#05727d]/5 text-[#05727d] text-[11px] uppercase tracking-wider sticky top-0 z-10">
           <tr>
             <th class="px-4 py-3 text-left whitespace-nowrap">Kode</th>
             <th class="px-4 py-3 text-left">Judul SOP</th>
@@ -139,7 +139,7 @@
           </tr>
         </thead>
 
-        <tbody class="divide-y divide-blue-50">
+        <tbody class="divide-y divide-[#05727d]/10">
           @forelse ($sops as $sop)
             @php
               $photoCount = is_array($sop->photos ?? null) ? count($sop->photos) : 0;
@@ -147,7 +147,7 @@
               $canApprove = $user->isRole(['admin','produksi','qa','logistik']) && $sop->status === 'waiting_approval';
             @endphp
 
-            <tr class="hover:bg-blue-50/40 transition">
+            <tr class="hover:bg-[#05727d]/5 transition">
               {{-- KODE --}}
               <td class="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
                 <div class="flex items-center gap-2">
@@ -174,7 +174,7 @@
 
                 <div class="mt-1 flex items-center gap-1.5 text-[11px]">
                   <span class="px-2 py-0.5 rounded-full border
-                    {{ $sop->is_public ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200' }}">
+                    {{ $sop->is_public ? 'bg-[#05727d]/10 text-[#05727d] border-[#05727d]/30' : 'bg-slate-50 text-slate-600 border-slate-200' }}">
                     {{ $sop->is_public ? 'Publik' : 'Privat' }}
                   </span>
 
@@ -214,8 +214,8 @@
                   {{-- VIEW --}}
                   <a href="{{ route('sop.show', $sop) }}"
                      class="inline-flex items-center px-3 py-1.5 rounded-lg
-                            bg-white border border-blue-200 text-blue-700
-                            hover:bg-blue-50 font-semibold text-[11px] transition">
+                            bg-white border border-[#05727d]/30 text-[#05727d]
+                            hover:bg-[#05727d]/5 font-semibold text-[11px] transition">
                     Lihat
                   </a>
 
@@ -236,7 +236,7 @@
                       <button
                         onclick="return confirm('Ajukan SOP ini untuk approval?');"
                         class="inline-flex items-center px-3 py-1.5 rounded-lg
-                               bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[11px] transition">
+                               bg-[#05727d] hover:bg-[#05727d]/90 text-white font-semibold text-[11px] transition">
                         Submit
                       </button>
                     </form>
@@ -250,7 +250,7 @@
                         <button
                           onclick="return confirm('Yakin menyetujui SOP ini?');"
                           class="inline-flex items-center px-3 py-1.5 rounded-lg
-                                 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[11px] transition">
+                                 bg-[#05727d] hover:bg-[#05727d]/90 text-white font-semibold text-[11px] transition">
                           Setujui
                         </button>
                       </form>
@@ -301,13 +301,13 @@
                            style="display:none;">
                         @if(Route::has('sop.versions'))
                           <a href="{{ route('sop.versions', $sop) }}"
-                             class="block px-3 py-2 rounded-lg hover:bg-blue-50 text-slate-700">
+                             class="block px-3 py-2 rounded-lg hover:bg-[#05727d]/5 text-slate-700">
                             Versi SOP
                           </a>
                         @endif
                         @if(Route::has('sop.history'))
                           <a href="{{ route('sop.history', $sop) }}"
-                             class="block px-3 py-2 rounded-lg hover:bg-blue-50 text-slate-700">
+                             class="block px-3 py-2 rounded-lg hover:bg-[#05727d]/5 text-slate-700">
                             History
                           </a>
                         @endif
@@ -322,7 +322,7 @@
           @empty
             <tr>
               <td colspan="6" class="px-4 py-12 text-center">
-                <div class="mx-auto w-14 h-14 rounded-2xl bg-blue-50 grid place-items-center text-blue-700 mb-3">
+                <div class="mx-auto w-14 h-14 rounded-2xl bg-[#05727d]/10 grid place-items-center text-[#05727d] mb-3">
                   <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
                   </svg>
@@ -337,7 +337,7 @@
     </div>
 
     {{-- PAGINATION --}}
-    <div class="px-4 py-3 border-t border-blue-100">
+    <div class="px-4 py-3 border-t border-[#05727d]/20">
       {{ $sops->appends(request()->query())->links() }}
     </div>
   </div>
@@ -354,11 +354,11 @@
     <div class="absolute inset-0 bg-black/40" @click="openCreate=false"></div>
 
     <div
-      class="relative w-full max-w-3xl bg-white rounded-2xl border border-blue-100 shadow-2xl overflow-hidden
+      class="relative w-full max-w-3xl bg-white rounded-2xl border border-[#05727d]/20 shadow-2xl overflow-hidden
              flex flex-col max-h-[90vh] md:max-h-[85vh]"
     >
 
-      <div class="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-blue-500 px-5 md:px-6 py-4 text-white">
+      <div class="sticky top-0 z-10 bg-gradient-to-r from-[#05727d] to-[#05727d] px-5 md:px-6 py-4 text-white">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">
@@ -368,7 +368,7 @@
             </div>
             <div>
               <h3 class="text-base font-semibold leading-tight">Tambah SOP Baru</h3>
-              <p class="text-xs text-blue-100">
+              <p class="text-xs text-white/80">
                 SOP akan masuk antrean persetujuan Produksi, QA, dan Logistik.
               </p>
             </div>
@@ -380,7 +380,7 @@
 
       <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
         @if($errors->any())
-          <div class="text-xs rounded-lg bg-blue-50 border border-blue-200 text-blue-800 px-3 py-2">
+          <div class="text-xs rounded-lg bg-[#05727d]/5 border border-[#05727d]/30 text-[#05727d] px-3 py-2">
             <div class="font-semibold mb-1">Periksa kembali input:</div>
             <ul class="list-disc pl-4 space-y-0.5">
               @foreach($errors->all() as $err)
@@ -394,9 +394,9 @@
           @csrf
 
           {{-- Informasi Utama --}}
-          <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
-            <div class="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-2">
-              <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+          <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
+            <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+              <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
               Informasi Utama
             </div>
 
@@ -405,7 +405,9 @@
                 <label class="block text-xs text-slate-600 mb-1">Kode SOP <span class="text-rose-500">*</span></label>
                 <input type="text" name="code" value="{{ old('code') }}"
                        class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                              {{ $errors->has('code') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}"
+                              {{ $errors->has('code')
+                                  ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                                  : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
                        placeholder="Contoh: SOP-PRD-001" required>
                 @error('code') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
               </div>
@@ -414,7 +416,9 @@
                 <label class="block text-xs text-slate-600 mb-1">Judul SOP <span class="text-rose-500">*</span></label>
                 <input type="text" name="title" value="{{ old('title') }}"
                        class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                              {{ $errors->has('title') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}"
+                              {{ $errors->has('title')
+                                  ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                                  : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
                        placeholder="Contoh: Prosedur Operasi Alat..." required>
                 @error('title') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
               </div>
@@ -423,7 +427,9 @@
                 <label class="block text-xs text-slate-600 mb-1">Departemen <span class="text-rose-500">*</span></label>
                 <input type="text" name="department" value="{{ old('department') }}"
                        class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                              {{ $errors->has('department') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}"
+                              {{ $errors->has('department')
+                                  ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                                  : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
                        placeholder="Produksi / QA / Logistik" required>
                 @error('department') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
               </div>
@@ -432,16 +438,16 @@
                 <label class="block text-xs text-slate-600 mb-1">Produk (Opsional)</label>
                 <input type="text" name="product" value="{{ old('product') }}"
                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                              focus:ring-blue-100 focus:border-blue-500"
+                              focus:ring-[#05727d]/15 focus:border-[#05727d]"
                        placeholder="Contoh: Nickel Matte / Packing ...">
               </div>
             </div>
           </div>
 
           {{-- Detail Operasional --}}
-          <div class="bg-white border border-blue-100 rounded-xl p-4">
-            <div class="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-2">
-              <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+          <div class="bg-white border border-[#05727d]/20 rounded-xl p-4">
+            <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+              <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
               Detail Operasional
             </div>
 
@@ -450,7 +456,7 @@
                 <label class="block text-xs text-slate-600 mb-1">Lini Produksi (Opsional)</label>
                 <input type="text" name="line" value="{{ old('line') }}"
                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                              focus:ring-blue-100 focus:border-blue-500"
+                              focus:ring-[#05727d]/15 focus:border-[#05727d]"
                        placeholder="Line A / Line B">
               </div>
 
@@ -458,36 +464,38 @@
                 <label class="block text-xs text-slate-600 mb-1">Tanggal Berlaku Mulai (Opsional)</label>
                 <input type="date" name="effective_from" value="{{ old('effective_from') }}"
                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                              focus:ring-blue-100 focus:border-blue-500">
+                              focus:ring-[#05727d]/15 focus:border-[#05727d]">
               </div>
 
               <div class="md:col-span-2">
                 <label class="block text-xs text-slate-600 mb-1">Tanggal Berlaku Sampai (Opsional)</label>
                 <input type="date" name="effective_to" value="{{ old('effective_to') }}"
                        class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                              {{ $errors->has('effective_to') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}">
+                              {{ $errors->has('effective_to')
+                                  ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                                  : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}">
                 @error('effective_to') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
               </div>
             </div>
           </div>
 
           {{-- Foto SOP --}}
-          <div class="bg-blue-50/40 border border-blue-100 rounded-xl p-4">
+          <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
             <div class="flex items-center justify-between mb-3">
-              <div class="text-xs font-semibold text-blue-700 flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+              <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
                 Foto SOP / Lampiran (Bisa Banyak)
               </div>
               <button type="button"
                       @click="addPhoto()"
-                      class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold shadow-sm">
+                      class="px-3 py-1.5 rounded-lg bg-[#05727d] hover:bg-[#05727d]/90 text-white text-[11px] font-semibold shadow-sm">
                 + Tambah Foto
               </button>
             </div>
 
             <div class="flex gap-3 overflow-x-auto pb-2 flex-nowrap">
               <template x-for="(p, i) in photos" :key="p.id">
-                <div class="bg-white border border-blue-100 rounded-xl p-3 min-w-[280px] md:min-w-[320px] shrink-0">
+                <div class="bg-white border border-[#05727d]/20 rounded-xl p-3 min-w-[280px] md:min-w-[320px] shrink-0">
                   <div class="flex items-start gap-3">
                     <div class="h-16 w-16 rounded-lg bg-slate-50 border border-slate-200 overflow-hidden grid place-items-center shrink-0">
                       <template x-if="p.preview">
@@ -503,16 +511,16 @@
                     <div class="flex-1">
                       <label class="block text-[11px] text-slate-600 mb-1">File Foto</label>
                       <label class="flex items-center justify-between gap-3 w-full cursor-pointer
-                                    rounded-lg border border-dashed border-blue-200 bg-white px-3 py-2 text-sm
-                                    hover:bg-blue-50 transition">
+                                    rounded-lg border border-dashed border-[#05727d]/30 bg-white px-3 py-2 text-sm
+                                    hover:bg-[#05727d]/5 transition">
                         <div class="flex items-center gap-2 text-slate-600">
-                          <svg class="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <svg class="w-4 h-4 text-[#05727d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4-4a3 3 0 014 0l4 4M2 20h20M2 12l5-5a3 3 0 014 0l3 3m7-7v8"/>
                           </svg>
                           <span x-show="!p.name" class="text-[12px]">Pilih foto</span>
                           <span x-show="p.name" class="font-semibold text-slate-800 text-[12px]" x-text="p.name"></span>
                         </div>
-                        <span class="text-[11px] text-blue-700 font-semibold">Upload</span>
+                        <span class="text-[11px] text-[#05727d] font-semibold">Upload</span>
                         <input type="file" name="photos[]" accept="image/*" class="hidden"
                                @change="setPhoto(i, $event)">
                       </label>
@@ -521,7 +529,7 @@
                         <label class="block text-[11px] text-slate-600 mb-1">Deskripsi Foto</label>
                         <input type="text" name="photo_desc[]"
                                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                                      focus:ring-blue-100 focus:border-blue-500"
+                                      focus:ring-[#05727d]/15 focus:border-[#05727d]"
                                placeholder="Cover / Step / Area kerja">
                       </div>
                     </div>
@@ -543,16 +551,16 @@
           </div>
 
           {{-- Akses SOP --}}
-          <div class="bg-white border border-blue-100 rounded-xl p-4">
-            <div class="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-2">
-              <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+          <div class="bg-white border border-[#05727d]/20 rounded-xl p-4">
+            <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+              <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
               Akses SOP
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label class="flex items-center gap-2">
                 <input id="is_public" type="checkbox" name="is_public" value="1"
-                       class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                       class="h-4 w-4 rounded border-slate-300 text-[#05727d] focus:ring-[#05727d]"
                        {{ old('is_public') ? 'checked' : '' }}>
                 <span class="text-xs text-slate-700">
                   Jadikan SOP publik (bisa dibuka via link/QR tanpa login)
@@ -563,7 +571,7 @@
                 <label class="block text-xs text-slate-600 mb-1">PIN Akses (Opsional)</label>
                 <input type="text" name="pin" value="{{ old('pin') }}"
                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                              focus:ring-blue-100 focus:border-blue-500"
+                              focus:ring-[#05727d]/15 focus:border-[#05727d]"
                        placeholder="Contoh: 1234">
                 <div class="text-[11px] text-slate-400 mt-1">
                   Jika publik + PIN diisi, SOP perlu PIN sebelum dibuka.
@@ -577,7 +585,7 @@
             <label class="block text-xs text-slate-600 mb-1">Isi / Deskripsi SOP (Opsional)</label>
             <textarea name="content" rows="6"
                       class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none
-                             focus:ring-blue-100 focus:border-blue-500"
+                             focus:ring-[#05727d]/15 focus:border-[#05727d]"
                       placeholder="Tuliskan isi SOP atau ringkasan langkah-langkahnya...">{{ old('content') }}</textarea>
           </div>
 
@@ -585,7 +593,7 @@
       </div>
 
       {{-- FOOTER ACTION --}}
-      <div class="sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-blue-100 px-4 md:px-6 py-3">
+      <div class="sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-[#05727d]/20 px-4 md:px-6 py-3">
         <div class="flex items-center justify-end gap-2">
           <button type="button"
                   @click="openCreate=false"
@@ -595,7 +603,7 @@
 
           <button type="submit"
                   form="sopCreateForm"
-                  class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm">
+                  class="px-5 py-2 rounded-lg bg-[#05727d] hover:bg-[#05727d]/90 text-white text-xs font-semibold shadow-sm">
             Simpan SOP
           </button>
         </div>
