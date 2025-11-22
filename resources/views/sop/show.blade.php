@@ -13,20 +13,52 @@
   $photos = [];
   foreach ($rawPhotos as $p) {
     if (is_string($p)) {
-      $path = $p; $desc = null;
+      $path = $p;
+      $desc = null;
     } elseif (is_array($p)) {
       $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
       $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
     } else {
-      $path = null; $desc = null;
+      $path = null;
+      $desc = null;
     }
 
-    if ($path) {
-      $isHttp = \Illuminate\Support\Str::startsWith($path, ['http://','https://','//']);
-      $url = $isHttp ? $path : \Illuminate\Support\Facades\Storage::url($path);
-      $photos[] = ['url'=>$url, 'desc'=>$desc];
+    if (!$path) {
+      continue;
     }
+
+    // Kalau sudah full URL, pakai langsung
+    $isHttp = \Illuminate\Support\Str::startsWith($path, ['http://','https://','//']);
+    if ($isHttp) {
+      $url = $path;
+    } else {
+      // BERSIHKAN prefix yang mungkin sudah ikut kebawa di DB
+      // contoh yang mungkin ada di DB:
+      // - "sops/abc.png"
+      // - "storage/sops/abc.png"
+      // - "storage/app/public/sops/abc.png"
+      $cleanPath = preg_replace('#^storage/(app/public/)?#', '', ltrim($path, '/'));
+      // sekarang $cleanPath harusnya "sops/abc.png"
+
+      if (app()->environment('local')) {
+        // LOCAL: standar Laravel -> public/storage/sops/abc.png
+        $publicPath = 'storage/' . $cleanPath;
+      } else {
+        // PRODUCTION HOSTINGER: langsung tembak ke storage/app/public/...
+        $publicPath = 'storage/app/public/' . $cleanPath;
+      }
+
+      $url = asset($publicPath);
+    }
+
+    $photos[] = [
+      'path' => $path,
+      'url'  => $url,
+      'desc' => $desc,
+    ];
   }
+
+  
 
   // === Mapping status pakai warna brand teal ===
   $statusMap = [
@@ -190,12 +222,17 @@
           {{-- Main Slide --}}
           <div class="relative border border-[#05727d]/20 rounded-xl overflow-hidden bg-slate-50">
             <div class="aspect-video md:aspect-[16/7] grid place-items-center bg-white">
-              <template x-for="(p, i) in {{ json_encode($photos) }}" :key="i">
-                <div x-show="idx===i" x-transition.opacity class="w-full h-full">
-                  <img :src="p.url" class="w-full h-full object-contain bg-white" alt="">
-                </div>
-              </template>
-            </div>
+  <template x-for="(p, i) in {{ json_encode($photos) }}" :key="i">
+    <div x-show="idx===i" x-transition.opacity class="w-full h-full flex items-center justify-center">
+      <img 
+        :src="p.url" 
+        class="max-h-[420px] w-auto object-contain rounded-lg shadow border border-slate-200"
+        alt=""
+      >
+    </div>
+  </template>
+</div>
+
 
             {{-- Prev/Next --}}
             <button type="button"
