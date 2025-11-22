@@ -2,12 +2,18 @@
 @section('title', 'Submission Check Sheet')
 
 @section('content')
+@php
+  $user = auth()->user();
+  $canReview = $user->isRole(['admin','qa','logistik']); // sesuai kode kamu
+@endphp
+
 <div class="max-w-6xl mx-auto space-y-4">
 
   {{-- ================= HEADER ================= --}}
   <div class="bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden">
     <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-5 text-white">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+
         <div class="flex items-start gap-3">
           <div class="h-11 w-11 rounded-2xl bg-white/15 grid place-items-center shrink-0">
             <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -26,7 +32,8 @@
         </div>
 
         {{-- Filter status --}}
-        <form method="GET" action="{{ route('check_sheets.submissions') }}"
+        <form method="GET"
+              action="{{ Route::has('check_sheets.submissions') ? route('check_sheets.submissions') : url()->current() }}"
               class="flex items-center gap-2 text-xs">
           <select name="status"
                   class="rounded-lg border border-white/30 bg-white/10 text-white px-3 py-2 outline-none
@@ -41,6 +48,7 @@
             Terapkan
           </button>
         </form>
+
       </div>
     </div>
   </div>
@@ -64,29 +72,40 @@
           @forelse ($submissions as $sub)
             @php
               $statusMap = [
-                'submitted'    => ['label'=>'SUBMITTED', 'cls'=>'bg-slate-50 text-slate-700 border-slate-200'],
+                'submitted'    => ['label'=>'SUBMITTED',    'cls'=>'bg-slate-50 text-slate-700 border-slate-200'],
                 'under_review' => ['label'=>'UNDER REVIEW', 'cls'=>'bg-amber-50 text-amber-700 border-amber-200'],
-                'approved'     => ['label'=>'APPROVED', 'cls'=>'bg-emerald-50 text-emerald-700 border-emerald-200'],
-                'rejected'     => ['label'=>'REJECTED', 'cls'=>'bg-rose-50 text-rose-700 border-rose-200'],
+                'approved'     => ['label'=>'APPROVED',     'cls'=>'bg-emerald-50 text-emerald-700 border-emerald-200'],
+                'rejected'     => ['label'=>'REJECTED',     'cls'=>'bg-rose-50 text-rose-700 border-rose-200'],
               ];
-              $st = $statusMap[$sub->status] ?? ['label'=>strtoupper($sub->status), 'cls'=>'bg-slate-50 text-slate-700 border-slate-200'];
+              $st = $statusMap[$sub->status] ?? [
+                'label'=>strtoupper($sub->status ?? '-'),
+                'cls'=>'bg-slate-50 text-slate-700 border-slate-200'
+              ];
+
+              $data = $sub->data ?? []; // biar aman kalau null
             @endphp
 
-            <tr class="transition align-top
-              {{ $sub->status === 'submitted' ? 'bg-amber-50/30' : 'hover:bg-blue-50/40' }}">
+            <tr class="transition align-top {{ $sub->status === 'submitted' ? 'bg-amber-50/30' : 'hover:bg-blue-50/40' }}">
+
               {{-- FORM --}}
               <td class="px-4 py-3">
                 <div class="font-semibold text-slate-900">
-                  {{ $sub->checkSheet->title ?? '-' }}
+                  {{ optional($sub->checkSheet)->title ?? '-' }}
                 </div>
                 <div class="text-[11px] text-slate-500">
-                  Dept: {{ $sub->checkSheet->department ?? '-' }}
+                  Dept: {{ optional($sub->checkSheet)->department ?? '-' }}
                 </div>
+                @if(optional($sub->checkSheet)->product || optional($sub->checkSheet)->line)
+                  <div class="mt-1 text-[11px] text-slate-500">
+                    {{ optional($sub->checkSheet)->product ?? '-' }}
+                    {{ optional($sub->checkSheet)->line ? ' / '.optional($sub->checkSheet)->line : '' }}
+                  </div>
+                @endif
               </td>
 
               {{-- OPERATOR --}}
               <td class="px-4 py-3 whitespace-nowrap text-slate-800">
-                {{ $sub->operator->name ?? '-' }}
+                {{ optional($sub->operator)->name ?? '-' }}
               </td>
 
               {{-- STATUS --}}
@@ -104,17 +123,18 @@
               {{-- REVIEWER --}}
               <td class="px-4 py-3 text-slate-700">
                 <div class="font-medium">
-                  {{ $sub->reviewer->name ?? '-' }}
+                  {{ optional($sub->reviewer)->name ?? '-' }}
                 </div>
                 @if($sub->reviewed_at)
                   <div class="text-[11px] text-slate-500">
-                    {{ $sub->reviewed_at->format('d M Y H:i') }}
+                    {{ optional($sub->reviewed_at)->format('d M Y H:i') }}
                   </div>
                 @endif
               </td>
 
               {{-- AKSI --}}
               <td class="px-4 py-3 w-[280px]">
+
                 {{-- DETAIL DATA --}}
                 <div x-data="{ open:false }" class="mb-2">
                   <button type="button"
@@ -130,26 +150,28 @@
 
                   <div x-show="open" x-transition.opacity
                        class="mt-2 bg-blue-50/60 border border-blue-100 rounded-xl p-3 text-[11px] text-slate-700 whitespace-pre-wrap">
-Shift: {{ $sub->data['shift'] ?? '-' }}
-Catatan: {{ $sub->data['notes'] ?? '-' }}
+Shift: {{ data_get($data,'shift','-') }}
+Catatan: {{ data_get($data,'notes','-') }}
 
 Hasil:
-{{ $sub->data['result'] ?? '-' }}
+{{ data_get($data,'result','-') }}
                   </div>
                 </div>
 
                 {{-- BUTTON APPROVAL --}}
-                @if(auth()->user()->isRole(['admin','qa','logistik']))
+                @if($canReview && Route::has('check_sheets.submissions.status'))
                   <div class="flex flex-wrap gap-1.5">
 
                     {{-- TINJAU --}}
                     <form method="POST" action="{{ route('check_sheets.submissions.status', $sub) }}">
                       @csrf
-                      @method('PATCH') {{-- hapus ini kalau route kamu POST --}}
+                      @method('PATCH') {{-- kalau route kamu POST, hapus baris ini --}}
                       <input type="hidden" name="status" value="under_review">
                       <button type="submit"
                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg
-                               bg-amber-100 text-amber-800 hover:bg-amber-200 text-[11px] font-semibold transition">
+                               bg-amber-100 text-amber-800 hover:bg-amber-200 text-[11px] font-semibold transition"
+                        onclick="return confirm('Ubah status ke UNDER REVIEW?');"
+                      >
                         Tinjau
                       </button>
                     </form>
@@ -161,7 +183,9 @@ Hasil:
                       <input type="hidden" name="status" value="approved">
                       <button type="submit"
                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg
-                               bg-emerald-100 text-emerald-800 hover:bg-emerald-200 text-[11px] font-semibold transition">
+                               bg-emerald-100 text-emerald-800 hover:bg-emerald-200 text-[11px] font-semibold transition"
+                        onclick="return confirm('Setujui submission ini?');"
+                      >
                         Setujui
                       </button>
                     </form>
@@ -173,13 +197,18 @@ Hasil:
                       <input type="hidden" name="status" value="rejected">
                       <button type="submit"
                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg
-                               bg-rose-100 text-rose-800 hover:bg-rose-200 text-[11px] font-semibold transition">
+                               bg-rose-100 text-rose-800 hover:bg-rose-200 text-[11px] font-semibold transition"
+                        onclick="return confirm('Tolak submission ini?');"
+                      >
                         Tolak
                       </button>
                     </form>
+
                   </div>
                 @endif
+
               </td>
+
             </tr>
 
           @empty

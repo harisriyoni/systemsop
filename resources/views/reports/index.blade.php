@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-  // ====== SAFE FALLBACKS (biar ga Undefined Variable) ======
+  // ====== SAFE FALLBACKS ======
   $rangeFrom = request('from');
   $rangeTo   = request('to');
   $dept      = request('department');
@@ -58,11 +58,12 @@
   {{-- ================= HEADER ================= --}}
   <div class="bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden">
     <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-5 text-white">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div class="flex items-start gap-3">
           <div class="h-11 w-11 rounded-2xl bg-white/15 grid place-items-center shrink-0">
             <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v6H4zM4 14h16v6H4z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 15l3-3 3 2 5-5"/>
             </svg>
           </div>
           <div>
@@ -82,6 +83,7 @@
           <input type="date" name="from" value="{{ $rangeFrom }}"
                  class="rounded-lg border border-white/30 bg-white/10 text-white px-3 py-2 outline-none
                         focus:ring-2 focus:ring-white/30">
+
           <input type="date" name="to" value="{{ $rangeTo }}"
                  class="rounded-lg border border-white/30 bg-white/10 text-white px-3 py-2 outline-none
                         focus:ring-2 focus:ring-white/30">
@@ -126,14 +128,18 @@
         @foreach($sopTotals as $key => $val)
           @php $s = $statusMapSop[$key] ?? ['label'=>strtoupper($key),'cls'=>'bg-slate-50 text-slate-700 border-slate-200']; @endphp
           <div class="flex items-center justify-between rounded-xl border border-blue-100 px-3 py-2 bg-blue-50/40">
-            <div class="flex items-center gap-2">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold {{ $s['cls'] }}">
-                {{ $s['label'] }}
-              </span>
-            </div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold {{ $s['cls'] }}">
+              {{ $s['label'] }}
+            </span>
             <div class="font-semibold text-slate-900">{{ $val }}</div>
           </div>
         @endforeach
+
+        @if($grandSop === 0)
+          <div class="text-[11px] text-slate-400 italic pt-1">
+            Belum ada data SOP pada filter ini.
+          </div>
+        @endif
       </div>
     </div>
 
@@ -181,6 +187,12 @@
             <div class="font-semibold text-slate-900">{{ $val }}</div>
           </div>
         @endforeach
+
+        @if($grandSub === 0)
+          <div class="text-[11px] text-slate-400 italic pt-1">
+            Belum ada submission pada filter ini.
+          </div>
+        @endif
       </div>
     </div>
 
@@ -202,24 +214,28 @@
         <table class="min-w-full text-xs">
           <thead class="bg-blue-50 text-blue-700 text-[11px] uppercase tracking-wider">
             <tr>
-              <th class="px-4 py-3 text-left">Kode</th>
+              <th class="px-4 py-3 text-left whitespace-nowrap">Kode</th>
               <th class="px-4 py-3 text-left">Judul</th>
-              <th class="px-4 py-3 text-left">Dept</th>
-              <th class="px-4 py-3 text-left">Status</th>
+              <th class="px-4 py-3 text-left whitespace-nowrap">Dept</th>
+              <th class="px-4 py-3 text-left whitespace-nowrap">Status</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-blue-50">
             @forelse($recentSops as $sop)
               @php $s = $statusMapSop[$sop->status] ?? ['label'=>$sop->status,'cls'=>'bg-slate-50 text-slate-700 border-slate-200']; @endphp
               <tr class="hover:bg-blue-50/40 transition">
-                <td class="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">{{ $sop->code }}</td>
+                <td class="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
+                  {{ $sop->code }}
+                </td>
                 <td class="px-4 py-3">
                   <div class="font-medium text-slate-900">{{ $sop->title }}</div>
                   <div class="text-[11px] text-slate-400">
                     {{ optional($sop->created_at)->format('d M Y') }}
                   </div>
                 </td>
-                <td class="px-4 py-3 text-slate-700 whitespace-nowrap">{{ $sop->department }}</td>
+                <td class="px-4 py-3 text-slate-700 whitespace-nowrap">
+                  {{ $sop->department }}
+                </td>
                 <td class="px-4 py-3 whitespace-nowrap">
                   <span class="inline-flex items-center px-2.5 py-1 rounded-full border text-[11px] font-semibold {{ $s['cls'] }}">
                     {{ $s['label'] }}
@@ -228,8 +244,9 @@
               </tr>
             @empty
               <tr>
-                <td colspan="4" class="px-4 py-8 text-center text-slate-400">
-                  Belum ada data SOP terbaru.
+                <td colspan="4" class="px-4 py-10 text-center">
+                  <div class="text-sm font-semibold text-slate-700 mb-1">Belum ada SOP terbaru</div>
+                  <div class="text-xs text-slate-400">Data akan muncul setelah ada SOP dibuat.</div>
                 </td>
               </tr>
             @endforelse
@@ -252,9 +269,9 @@
           <thead class="bg-blue-50 text-blue-700 text-[11px] uppercase tracking-wider">
             <tr>
               <th class="px-4 py-3 text-left">Form</th>
-              <th class="px-4 py-3 text-left">Operator</th>
-              <th class="px-4 py-3 text-left">Status</th>
-              <th class="px-4 py-3 text-left">Waktu</th>
+              <th class="px-4 py-3 text-left whitespace-nowrap">Operator</th>
+              <th class="px-4 py-3 text-left whitespace-nowrap">Status</th>
+              <th class="px-4 py-3 text-left whitespace-nowrap">Waktu</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-blue-50">
@@ -281,8 +298,9 @@
               </tr>
             @empty
               <tr>
-                <td colspan="4" class="px-4 py-8 text-center text-slate-400">
-                  Belum ada submission terbaru.
+                <td colspan="4" class="px-4 py-10 text-center">
+                  <div class="text-sm font-semibold text-slate-700 mb-1">Belum ada submission terbaru</div>
+                  <div class="text-xs text-slate-400">Submission operator akan tampil di sini.</div>
                 </td>
               </tr>
             @endforelse

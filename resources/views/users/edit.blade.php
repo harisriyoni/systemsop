@@ -16,13 +16,19 @@
       </div>
     </div>
 
+    {{-- routes kamu: users.update = PATCH /users/{user} --}}
     <form method="POST" action="{{ route('users.update', $user) }}" class="p-6 space-y-4 text-sm">
       @csrf
-      @method('PUT')
+      @method('PATCH')
 
       @if ($errors->any())
         <div class="rounded-xl bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 text-xs">
-          {{ $errors->first() }}
+          <div class="font-semibold mb-1">Terjadi error:</div>
+          <ul class="list-disc pl-4 space-y-0.5">
+            @foreach($errors->all() as $err)
+              <li>{{ $err }}</li>
+            @endforeach
+          </ul>
         </div>
       @endif
 
@@ -31,20 +37,23 @@
           <label class="block text-xs text-slate-500 mb-1">Nama</label>
           <input type="text" name="name"
                  value="{{ old('name', $user->name) }}"
-                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-blue-200">
+                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
+                        focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none">
         </div>
 
         <div>
           <label class="block text-xs text-slate-500 mb-1">Email</label>
           <input type="email" name="email"
                  value="{{ old('email', $user->email) }}"
-                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-blue-200">
+                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
+                        focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none">
         </div>
 
         <div>
           <label class="block text-xs text-slate-500 mb-1">Role</label>
           <select name="role"
-                  class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-blue-200">
+                  class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
+                         focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none">
             @foreach($roles as $r)
               <option value="{{ $r }}" {{ old('role', $user->role)==$r?'selected':'' }}>
                 {{ strtoupper($r) }}
@@ -56,15 +65,34 @@
         <div>
           <label class="block text-xs text-slate-500 mb-1">Password Baru (opsional)</label>
           <input type="password" name="password"
-                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-blue-200"
+                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
+                        focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
                  placeholder="Kosongkan jika tidak ganti">
         </div>
 
         <div>
           <label class="block text-xs text-slate-500 mb-1">Konfirmasi Password Baru</label>
           <input type="password" name="password_confirmation"
-                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-blue-200">
+                 class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
+                        focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none">
         </div>
+
+        {{-- optional status aktif kalau kolom ada --}}
+        @php
+          $isActive = old('is_active', $user->is_active ?? $user->active ?? null);
+        @endphp
+        @if(!is_null($isActive))
+        <div class="md:col-span-2">
+          <label class="inline-flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" name="is_active" value="1" {{ $isActive ? 'checked' : '' }}
+                   class="rounded border-slate-300 text-blue-600 focus:ring-blue-200">
+            User Aktif
+          </label>
+          <div class="text-[11px] text-slate-400 mt-1">
+            Kalau dimatikan, user tidak bisa login.
+          </div>
+        </div>
+        @endif
       </div>
 
       <div class="flex items-center justify-between pt-2">
