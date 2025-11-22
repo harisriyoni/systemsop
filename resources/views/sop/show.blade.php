@@ -63,11 +63,41 @@
   $qrUrl = ($sop->is_public && $hasPublicRoute)
       ? route('sop.public.show', $sop)
       : route('sop.show', $sop);
+
+  // ===== Meta / extra fields / builder schema =====
+  $meta = $sop->meta ?? [];
+  if (is_string($meta)) {
+      $meta = json_decode($meta, true) ?: [];
+  }
+
+  // extra_fields = array of [label, value]
+  $extraFields = [];
+  if (!empty($meta['extra_fields']) && is_array($meta['extra_fields'])) {
+      foreach ($meta['extra_fields'] as $row) {
+          if (!is_array($row)) continue;
+          $label = trim($row['label'] ?? '');
+          $value = trim($row['value'] ?? '');
+          if ($label === '' && $value === '') continue;
+          $extraFields[] = [
+              'label' => $label ?: '-',
+              'value' => $value ?: '-',
+          ];
+      }
+  }
+
+  // builder_schema bisa disimpan di meta['builder_schema'] atau kolom langsung
+  $builderSchema = $meta['builder_schema'] ?? ($sop->builder_schema ?? []);
+  if (is_string($builderSchema)) {
+      $builderSchema = json_decode($builderSchema, true) ?: [];
+  }
+  if (!is_array($builderSchema)) {
+      $builderSchema = [];
+  }
 @endphp
 
 <div class="space-y-5">
 
-  {{-- ================= HEADER PITCHING ================= --}}
+  {{-- ================= HEADER ================= --}}
   <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm overflow-hidden">
     <div class="bg-gradient-to-r from-[#05727d] to-[#0894a0] px-6 py-5 text-white">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -144,8 +174,7 @@
     </div>
   </div>
 
-
-  {{-- ================= FOTO + APPROVAL SEJAJAR ================= --}}
+  {{-- ================= FOTO + APPROVAL ================= --}}
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
     {{-- FOTO CAROUSEL --}}
@@ -243,7 +272,7 @@
         SOP akan otomatis <span class="font-semibold text-[#05727d]">Disetujui</span> jika Produksi, QA, dan Logistik sudah approve.
       </div>
 
-      {{-- ================= QR SOP (SAMA KAYAK QR CENTER) ================= --}}
+      {{-- QR SOP --}}
       @if($sop->status === 'approved')
         <div class="mt-4 border-t border-[#05727d]/20 pt-4">
           <div class="text-sm font-semibold text-slate-900 mb-2">QR SOP (Display Operator)</div>
@@ -252,7 +281,6 @@
             <div class="font-semibold text-slate-700 mb-1">{{ $sop->code }}</div>
             <div class="text-[11px] text-slate-500 mb-2">{{ $sop->title }}</div>
 
-            {{-- SVG tajam kalau simple-qrcode terpasang --}}
             @if(class_exists(\SimpleSoftwareIO\QrCode\Facades\QrCode::class))
               <div class="flex justify-center mb-2">
                 {!! \SimpleSoftwareIO\QrCode::size(150)->margin(1)->generate($qrUrl) !!}
@@ -279,7 +307,6 @@
           </div>
         </div>
       @else
-        {{-- LOCKED --}}
         <div class="mt-4 border-t border-[#05727d]/20 pt-4">
           <div class="text-sm font-semibold text-slate-900 mb-2">QR SOP</div>
 
@@ -299,11 +326,107 @@
           </div>
         </div>
       @endif
-      {{-- ================= END QR SOP ================= --}}
     </div>
 
   </div>
 
+  {{-- ================= INFORMASI TAMBAHAN + STRUKTUR ================= --}}
+  @if(count($extraFields) || count($builderSchema))
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {{-- INFORMASI TAMBAHAN --}}
+      <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm font-semibold text-slate-900">Informasi Tambahan</div>
+          <div class="text-xs text-slate-500">Dari form builder</div>
+        </div>
+
+        @if(count($extraFields))
+          <div class="border border-slate-200 rounded-xl overflow-hidden text-xs">
+            <table class="min-w-full divide-y divide-slate-200">
+              <tbody class="divide-y divide-slate-200">
+                @foreach($extraFields as $row)
+                  <tr class="bg-white">
+                    <td class="px-3 py-2 font-medium text-slate-700 w-40">{{ $row['label'] }}</td>
+                    <td class="px-3 py-2 text-slate-800">{{ $row['value'] }}</td>
+                  </tr>
+                @endforeach
+              </tbody>
+            </table>
+          </div>
+        @else
+          <div class="text-xs text-slate-500">
+            Tidak ada informasi tambahan untuk SOP ini.
+          </div>
+        @endif
+      </div>
+
+      {{-- STRUKTUR SOP / CHECK SHEET PREVIEW --}}
+      <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm font-semibold text-slate-900">Struktur SOP (Preview Check Sheet)</div>
+          <div class="text-xs text-slate-500">Template dari builder</div>
+        </div>
+
+        @if(count($builderSchema))
+          <div class="space-y-3 text-xs">
+            @foreach($builderSchema as $section)
+              @php
+                $secName = $section['name'] ?? 'Section';
+                $items   = $section['items'] ?? [];
+                if (!is_array($items)) {
+                    $items = [];
+                }
+              @endphp
+              <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                <div class="font-semibold text-slate-800 mb-2">{{ $secName }}</div>
+
+                @if(count($items))
+                  <ul class="space-y-1">
+                    @foreach($items as $item)
+                      @php
+                        $label    = $item['label'] ?? '-';
+                        $type     = $item['type'] ?? 'checkbox';
+                        $required = !empty($item['required']);
+
+                        // Tanpa match biar simpel
+                        if ($type === 'number') {
+                            $typeLabel = 'Angka';
+                        } elseif ($type === 'text') {
+                            $typeLabel = 'Teks';
+                        } else {
+                            $typeLabel = 'Checklist';
+                        }
+                      @endphp
+                      <li class="flex items-start gap-2">
+                        <span class="mt-[3px] h-3.5 w-3.5 rounded border border-slate-400 inline-block"></span>
+                        <div>
+                          <div class="text-slate-800">{{ $label }}</div>
+                          <div class="text-[10px] text-slate-500">
+                            Tipe: {{ $typeLabel }}
+                            @if($required)
+                              • Wajib
+                            @endif
+                          </div>
+                        </div>
+                      </li>
+                    @endforeach
+                  </ul>
+                @else
+                  <div class="text-[11px] text-slate-500">
+                    Belum ada item dalam section ini.
+                  </div>
+                @endif
+              </div>
+            @endforeach
+          </div>
+        @else
+          <div class="text-xs text-slate-500">
+            Belum ada struktur builder untuk SOP ini.
+          </div>
+        @endif
+      </div>
+    </div>
+  @endif
 
   {{-- ================= ISI SOP ================= --}}
   <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm p-5">
@@ -316,7 +439,6 @@
       {!! nl2br(e($sop->content)) !!}
     </div>
   </div>
-
 
   {{-- FOOTER --}}
   <div class="flex justify-between items-center text-xs">

@@ -4,8 +4,36 @@
 @section('content')
 @php
   $user = auth()->user();
-  $photos = is_array($sop->photos ?? null) ? $sop->photos : (json_decode($sop->photos, true) ?: []);
-  $canManage = $user->isRole(['admin','produksi']);
+
+  // --- Normalisasi photos biar sama dengan show.blade ---
+  $rawPhotos = $sop->photos ?? [];
+  if (is_string($rawPhotos)) {
+      $rawPhotos = json_decode($rawPhotos, true) ?: [];
+  }
+
+  $photos = [];
+  foreach ($rawPhotos as $p) {
+      if (is_string($p)) {
+          $path = $p;
+          $desc = null;
+      } elseif (is_array($p)) {
+          $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
+          $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
+      } else {
+          $path = null;
+          $desc = null;
+      }
+
+      if ($path) {
+          $isHttp = \Illuminate\Support\Str::startsWith($path, ['http://','https://','//']);
+          $url = $isHttp ? $path : asset('storage/' . ltrim($path, '/'));
+          $photos[] = [
+            'path' => $path,
+            'url'  => $url,
+            'desc' => $desc,
+          ];
+      }
+  }
 @endphp
 
 <div
@@ -177,8 +205,8 @@
           @foreach($photos as $p)
             @php
               $path = $p['path'] ?? null;
+              $url  = $p['url']  ?? null;
               $desc = $p['desc'] ?? null;
-              $url = $path ? Storage::disk('public')->url($path) : null;
             @endphp
 
             <label class="bg-white border border-[#05727d]/20 rounded-xl p-3 flex gap-3 cursor-pointer hover:bg-[#05727d]/5 transition">

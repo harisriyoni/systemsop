@@ -6,50 +6,67 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up(): void
-    {
-        Schema::create('sops', function (Blueprint $table) {
-            $table->id();
-            $table->string('code')->unique();
-            $table->string('title');
-            $table->string('department'); // Produksi / QA / Logistik / dll
-            $table->string('product')->nullable();
-            $table->string('line')->nullable();
+   public function up(): void
+{
+    Schema::create('sops', function (Blueprint $table) {
+        // ID pakai UUID
+        $table->uuid('id')->primary();
 
-            // ✅ FOTO ARRAY + DESKRIPSI (JSON)
-            // contoh:
-            // [
-            //   {"path":"sops/a.jpg","desc":"Cover SOP"},
-            //   {"path":"sops/b.jpg","desc":"Lampiran"}
-            // ]
-            $table->json('photos')->nullable();
+        $table->string('code')->unique();
+        $table->string('title');
+        $table->string('department'); // Produksi / QA / Logistik / dll
+        $table->string('product')->nullable();
+        $table->string('line')->nullable();
 
-            // ✅ PIN AKSES (opsional)
-            $table->string('pin')->nullable();
+        // Foto / lampiran (sudah ada)
+        // contoh isi:
+        // [
+        //   {"path":"sops/a.jpg","desc":"Foto area kerja"},
+        //   {"path":"sops/b.jpg","desc":"Lampiran"}
+        // ]
+        $table->json('photos')->nullable();
 
-            // ✅ AKSES PUBLIK / TIDAK
-            $table->boolean('is_public')->default(false);
-            $table->index('is_public');
+        // PIN akses (opsional)
+        $table->string('pin')->nullable();
 
-            $table->enum('status', ['draft','waiting_approval','approved','expired'])
-                ->default('draft');
+        // akses publik
+        $table->boolean('is_public')->default(false);
+        $table->index('is_public');
 
-            // approval 3 departemen
-            $table->boolean('is_approved_produksi')->default(false);
-            $table->boolean('is_approved_qa')->default(false);
-            $table->boolean('is_approved_logistik')->default(false);
+        $table->enum('status', ['draft','waiting_approval','approved','expired'])
+            ->default('draft');
 
-            $table->longText('content')->nullable();
-            $table->date('effective_from')->nullable();
-            $table->date('effective_to')->nullable();
+        // approval 3 departemen
+        $table->boolean('is_approved_produksi')->default(false);
+        $table->boolean('is_approved_qa')->default(false);
+        $table->boolean('is_approved_logistik')->default(false);
 
-            $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
-            $table->timestamps();
-        });
-    }
+        // isi SOP bebas (rich text / markdown)
+        $table->longText('content')->nullable();
 
+        // 🔥 Tambahan: schema builder SOP (dipakai fitur Check Sheet)
+        // contoh:
+        // [
+        //   {"name":"Persiapan","items":[{"label":"Area bersih","type":"checkbox"}]}
+        // ]
+        
+
+        $table->date('effective_from')->nullable();
+        $table->date('effective_to')->nullable();
+
+        // relasi ke users (tetap BIGINT, gak usah dipaksain UUID kalau user belum siap)
+        $table->foreignId('created_by')
+            ->constrained('users')
+            ->cascadeOnDelete();
+
+        $table->timestamps();
+    });
+}
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::dropIfExists('sops');
     }
-};
+};  

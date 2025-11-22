@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class Sop extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUuids;
 
     protected $fillable = [
         'code',
@@ -46,6 +47,9 @@ class Sop extends Model
         'qr_url',
 
         'content',
+        'form_schema',
+        'builder_schema',
+        'meta',
         'effective_from',
         'effective_to',
 
@@ -69,6 +73,9 @@ class Sop extends Model
         'rejected_at' => 'datetime',
 
         'photos'    => 'array',
+        'form_schema'    => 'array',
+        'builder_schema' => 'array',
+        'meta'           => 'array',
         'is_public' => 'boolean',
     ];
 
