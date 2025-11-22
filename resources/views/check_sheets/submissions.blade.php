@@ -10,8 +10,8 @@
 <div class="max-w-6xl mx-auto space-y-4">
 
   {{-- ================= HEADER ================= --}}
-  <div class="bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden">
-    <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-5 text-white">
+  <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm overflow-hidden">
+    <div class="bg-gradient-to-r from-[#05727d] to-[#0894a0] px-6 py-5 text-white">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
 
         <div class="flex items-start gap-3">
@@ -21,11 +21,11 @@
             </svg>
           </div>
           <div>
-            <div class="text-xs text-blue-100">Monitoring</div>
+            <div class="text-xs text-[#d5f3f4]">Monitoring</div>
             <div class="text-2xl font-semibold leading-tight">
               Daftar Submission Check Sheet
             </div>
-            <div class="text-sm text-blue-50/90 mt-1">
+            <div class="text-sm text-[#e8fbfc] mt-1">
               Total: {{ $submissions->total() }} submission
             </div>
           </div>
@@ -37,14 +37,14 @@
               class="flex items-center gap-2 text-xs">
           <select name="status"
                   class="rounded-lg border border-white/30 bg-white/10 text-white px-3 py-2 outline-none
-                         focus:ring-2 focus:ring-white/30">
+                         focus:ring-2 focus:ring-white/40">
             <option value="">Semua Status</option>
-            <option value="submitted" {{ request('status')=='submitted'?'selected':'' }}>Submitted</option>
+            <option value="submitted"    {{ request('status')=='submitted'?'selected':'' }}>Submitted</option>
             <option value="under_review" {{ request('status')=='under_review'?'selected':'' }}>Under Review</option>
-            <option value="approved" {{ request('status')=='approved'?'selected':'' }}>Approved</option>
-            <option value="rejected" {{ request('status')=='rejected'?'selected':'' }}>Rejected</option>
+            <option value="approved"     {{ request('status')=='approved'?'selected':'' }}>Approved</option>
+            <option value="rejected"     {{ request('status')=='rejected'?'selected':'' }}>Rejected</option>
           </select>
-          <button class="px-3 py-2 rounded-lg bg-white text-blue-700 font-semibold hover:bg-blue-50 transition">
+          <button class="px-3 py-2 rounded-lg bg-white text-[#04535b] font-semibold hover:bg-[#e0f4f6] transition">
             Terapkan
           </button>
         </form>
@@ -54,10 +54,10 @@
   </div>
 
   {{-- ================= TABLE ================= --}}
-  <div class="bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden">
+  <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
       <table class="min-w-full text-xs">
-        <thead class="bg-blue-50 text-blue-700 text-[11px] uppercase tracking-wider">
+        <thead class="bg-[#e0f4f6] text-[#04535b] text-[11px] uppercase tracking-wider">
           <tr>
             <th class="px-4 py-3 text-left whitespace-nowrap">Form</th>
             <th class="px-4 py-3 text-left whitespace-nowrap">Operator</th>
@@ -68,7 +68,7 @@
           </tr>
         </thead>
 
-        <tbody class="divide-y divide-blue-50">
+        <tbody class="divide-y divide-[#e0f4f6]">
           @forelse ($submissions as $sub)
             @php
               $statusMap = [
@@ -82,10 +82,10 @@
                 'cls'=>'bg-slate-50 text-slate-700 border-slate-200'
               ];
 
-              $data = $sub->data ?? []; // biar aman kalau null
+              $data = $sub->data ?? [];
             @endphp
 
-            <tr class="transition align-top {{ $sub->status === 'submitted' ? 'bg-amber-50/30' : 'hover:bg-blue-50/40' }}">
+            <tr class="transition align-top {{ $sub->status === 'submitted' ? 'bg-amber-50/40' : 'hover:bg-[#e0f4f6]/70' }}">
 
               {{-- FORM --}}
               <td class="px-4 py-3">
@@ -140,8 +140,8 @@
                   <button type="button"
                           @click="open=!open"
                           class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
-                                 bg-white border border-blue-200 text-blue-700
-                                 hover:bg-blue-50 font-semibold text-[11px] transition">
+                                 bg-white border border-[#b7e9ec] text-[#04535b]
+                                 hover:bg-[#e0f4f6] font-semibold text-[11px] transition">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
@@ -149,7 +149,7 @@
                   </button>
 
                   <div x-show="open" x-transition.opacity
-                       class="mt-2 bg-blue-50/60 border border-blue-100 rounded-xl p-3 text-[11px] text-slate-700 whitespace-pre-wrap">
+                       class="mt-2 bg-[#e0f4f6] border border-[#b7e9ec] rounded-xl p-3 text-[11px] text-slate-700 whitespace-pre-wrap">
 Shift: {{ data_get($data,'shift','-') }}
 Catatan: {{ data_get($data,'notes','-') }}
 
@@ -165,7 +165,7 @@ Hasil:
                     {{-- TINJAU --}}
                     <form method="POST" action="{{ route('check_sheets.submissions.status', $sub) }}">
                       @csrf
-                      @method('PATCH') {{-- kalau route kamu POST, hapus baris ini --}}
+                      @method('PATCH')
                       <input type="hidden" name="status" value="under_review">
                       <button type="submit"
                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg
@@ -224,7 +224,7 @@ Hasil:
     </div>
 
     {{-- PAGINATION --}}
-    <div class="px-4 py-3 border-t border-blue-100">
+    <div class="px-4 py-3 border-t border-[#05727d]/20">
       {{ $submissions->appends(request()->query())->links() }}
     </div>
   </div>

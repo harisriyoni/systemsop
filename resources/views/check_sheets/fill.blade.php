@@ -5,8 +5,8 @@
 <div class="max-w-4xl mx-auto space-y-4">
 
   {{-- ================= HEADER / INFO FORM ================= --}}
-  <div class="bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden">
-    <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-5 text-white">
+  <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm overflow-hidden">
+    <div class="bg-gradient-to-r from-[#05727d] to-[#0894a0] px-6 py-5 text-white">
       <div class="flex items-start justify-between gap-4">
         <div class="flex items-start gap-3">
           <div class="h-11 w-11 rounded-2xl bg-white/15 grid place-items-center shrink-0">
@@ -15,11 +15,11 @@
             </svg>
           </div>
           <div>
-            <div class="text-xs text-blue-100">Form Check Sheet</div>
+            <div class="text-xs text-[#d5f3f4]">Form Check Sheet</div>
             <div class="text-2xl font-semibold leading-tight">
               {{ $checkSheet->title }}
             </div>
-            <div class="text-sm text-blue-50/90 mt-1">
+            <div class="text-sm text-white/80 mt-1">
               Departemen: <span class="font-semibold">{{ $checkSheet->department }}</span>
               @if($checkSheet->product) • Produk: <span class="font-semibold">{{ $checkSheet->product }}</span> @endif
               @if($checkSheet->line) • Line: <span class="font-semibold">{{ $checkSheet->line }}</span> @endif
@@ -27,7 +27,7 @@
           </div>
         </div>
 
-        <div class="text-right text-xs text-blue-100 hidden md:block">
+        <div class="text-right text-xs text-[#d5f3f4] hidden md:block">
           Status: 
           <span class="inline-flex px-2 py-1 rounded-full bg-white/10 border border-white/20 text-white font-semibold">
             {{ strtoupper($checkSheet->status) }}
@@ -37,8 +37,8 @@
     </div>
 
     @if($checkSheet->description)
-      <div class="px-6 py-4 bg-blue-50/40 border-t border-blue-100 text-sm text-slate-700">
-        <div class="text-xs font-semibold text-blue-700 mb-1">Instruksi Singkat</div>
+      <div class="px-6 py-4 bg-[#05727d]/5 border-t border-[#05727d]/20 text-sm text-slate-700">
+        <div class="text-xs font-semibold text-[#05727d] mb-1">Instruksi Singkat</div>
         {{ $checkSheet->description }}
       </div>
     @endif
@@ -47,7 +47,7 @@
 
   {{-- ================= FORM INPUT ================= --}}
   <form method="POST" action="{{ route('check_sheets.submit', $checkSheet) }}"
-        class="bg-white border border-blue-100 rounded-2xl shadow-sm p-6 space-y-5">
+        class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm p-6 space-y-5">
     @csrf
 
     {{-- ERROR GLOBAL --}}
@@ -63,9 +63,9 @@
     @endif
 
     {{-- SECTION: DATA SHIFT --}}
-    <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
-      <div class="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+    <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
+      <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+        <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
         Data Pengecekan
       </div>
 
@@ -79,7 +79,9 @@
           <input type="text" name="shift" value="{{ old('shift') }}"
                  placeholder="Contoh: Shift 1 / Shift A"
                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                        {{ $errors->has('shift') ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-500' }}">
+                        {{ $errors->has('shift')
+                            ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                            : 'border-slate-200 focus:ring-[#b7e9ec] focus:border-[#05727d]' }}">
           @error('shift')
             <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div>
           @enderror
@@ -93,7 +95,7 @@
           <input type="text" name="notes" value="{{ old('notes') }}"
                  placeholder="Misal: ada temuan kecil, dll"
                  class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                        focus:ring-blue-100 focus:border-blue-500">
+                        focus:ring-[#b7e9ec] focus:border-[#05727d]">
           @error('notes')
             <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div>
           @enderror
@@ -111,7 +113,7 @@
 
       <textarea name="result" rows="7"
                 class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none
-                       focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
+                       focus:ring-4 focus:ring-[#b7e9ec] focus:border-[#05727d]"
                 placeholder="- Contoh: Temperatur sesuai
 - Pressure OK
 - Kebocoran tidak ada
@@ -130,13 +132,13 @@
     {{-- ACTIONS --}}
     <div class="pt-2 flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-2">
       <a href="{{ route('dashboard') }}"
-         class="inline-flex items-center gap-2 text-slate-600 hover:text-blue-700 text-xs font-semibold">
+         class="inline-flex items-center gap-2 text-slate-600 hover:text-[#05727d] text-xs font-semibold">
         ← Kembali ke Dashboard
       </a>
 
       <button
         class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl
-               bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition">
+               bg-[#05727d] hover:bg-[#0894a0] text-white text-xs font-semibold shadow-sm transition">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
         </svg>
