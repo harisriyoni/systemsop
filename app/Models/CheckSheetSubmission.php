@@ -39,4 +39,10 @@ class CheckSheetSubmission extends Model
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
+
+    // 👇 baru: log semua approval
+    public function approvals()
+    {
+        return $this->hasMany(CheckSheetApproval::class, 'check_sheet_submission_id');
+    }
 }

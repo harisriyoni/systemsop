@@ -28,10 +28,13 @@ class CheckSheet extends Model
         'description',
         'created_by',
 
-        // === QR fields (sesuai error kamu) ===
+        'fields',  
+        'meta',     
+
         'qr_path',
         'qr_url',
     ];
+
 
     /**
      * Casts (aman walau null)
@@ -39,6 +42,9 @@ class CheckSheet extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+
+        'fields' => 'array',  
+        'meta'   => 'array',   
     ];
 
     /* =========================

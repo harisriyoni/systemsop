@@ -120,7 +120,7 @@
                 {{ optional($sub->submitted_at)->format('d M Y H:i') ?? '-' }}
               </td>
 
-              {{-- REVIEWER --}}
+              {{-- REVIEWER (legacy single reviewer) --}}
               <td class="px-4 py-3 text-slate-700">
                 <div class="font-medium">
                   {{ optional($sub->reviewer)->name ?? '-' }}
@@ -206,6 +206,64 @@ Hasil:
 
                   </div>
                 @endif
+
+                {{-- PROGRESS APPROVAL --}}
+                @php
+                    // list approval utk submission ini
+                    $approvals = $sub->approvals ?? collect();
+
+                    // konfigurasi dari meta form (kalau ada), default 3
+                    $required  = (int) data_get($sub->checkSheet->meta, 'approval_flow.required', 3);
+                    if ($required < 1) $required = 1;
+
+                    $approvedCount = $approvals->where('status', 'approved')->count();
+                    $rejectedCount = $approvals->where('status', 'rejected')->count();
+                @endphp
+
+                <div class="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-2 text-[11px] text-slate-700">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-semibold">Progress Approval</span>
+                        <span class="text-[10px] text-slate-500">
+                            {{ $approvedCount }}/{{ $required }} Approved
+                        </span>
+                    </div>
+
+                    @if($rejectedCount > 0)
+                        <div class="mb-1 text-[10px] text-rose-600 font-semibold">
+                            Ada {{ $rejectedCount }} penolakan.
+                        </div>
+                    @endif
+
+                    @if($approvals->count())
+                        <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
+                            @foreach($approvals as $appr)
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="truncate">
+                                        <span class="font-semibold">
+                                            {{ optional($appr->reviewer)->name ?? '—' }}
+                                        </span>
+                                        @if(optional($appr->reviewer)->role)
+                                            <span class="text-[10px] text-slate-500">
+                                                ({{ strtoupper(optional($appr->reviewer)->role) }})
+                                            </span>
+                                        @endif
+                                    </div>
+
+                                    <span class="inline-flex px-2 py-0.5 rounded-full border text-[10px]
+                                        {{ $appr->status === 'approved'
+                                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                            : 'bg-rose-50 border-rose-200 text-rose-700' }}">
+                                        {{ strtoupper($appr->status) }}
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="text-[10px] text-slate-400">
+                            Belum ada tindakan approval.
+                        </div>
+                    @endif
+                </div>
 
               </td>
 

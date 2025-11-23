@@ -104,6 +104,41 @@
       </div>
     </div>
 
+    {{-- SECTION: CHECKLIST DINAMIS --}}
+    @php
+      $extraFields = $checkSheet->fields ?? [];
+    @endphp
+
+    @if(!empty($extraFields))
+      <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4 space-y-3">
+        <div class="text-xs font-semibold text-[#05727d] mb-1 flex items-center gap-2">
+          <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
+          Checklist Detail
+        </div>
+
+        <div class="space-y-2">
+          @foreach($extraFields as $i => $f)
+            @php
+              $key   = $f['key']   ?? ('field_'.$i);
+              $label = $f['label'] ?? $key;
+            @endphp
+
+            <label class="flex items-start gap-2 text-xs text-slate-700">
+              <input type="checkbox"
+                     name="data[{{ $key }}]"
+                     value="1"
+                     class="mt-0.5 rounded border-slate-300 text-[#05727d] focus:ring-[#05727d]">
+              <span>{{ $label }}</span>
+            </label>
+          @endforeach
+        </div>
+
+        <div class="text-[11px] text-slate-400">
+          Checklist ini akan ikut tersimpan di data submission (kolom <code>data</code>).
+        </div>
+      </div>
+    @endif
+
 
     {{-- SECTION: HASIL --}}
     <div>

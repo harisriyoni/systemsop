@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CheckSheetApproval;
 use App\Models\CheckSheet;
 use App\Models\CheckSheetSubmission;
 use Illuminate\Http\Request;
@@ -80,6 +81,15 @@ class CheckSheetController extends Controller
 
         $data['created_by'] = auth()->id();
 
+        // Default meta
+        $data['meta'] = [
+            'approval_flow' => [
+                'required' => 3, // harus 3 orang approve
+                'roles' => ['admin', 'qa', 'logistik'], // urutan bebas
+            ],
+        ];
+
+
         // default draft kalau UI gak ngirim status
         $requestedStatus = $data['status'] ?? 'draft';
 
@@ -131,6 +141,10 @@ class CheckSheetController extends Controller
         if (($data['status'] ?? null) === 'active' && $this->canPublish()) {
             $data['published_by'] = auth()->id();
             $data['published_at'] = now();
+        }
+        // Kalau meta tidak dikirim dari UI, pertahankan meta lama
+        if (!isset($data['meta'])) {
+            $data['meta'] = $checkSheet->meta;
         }
 
         $checkSheet->update($data);
@@ -265,8 +279,14 @@ class CheckSheetController extends Controller
     {
         $this->authorizeViewSubmissions();
 
-        $query = CheckSheetSubmission::with(['checkSheet','operator'])
+        $query = CheckSheetSubmission::with([
+                'checkSheet',
+                'operator',
+                'reviewer',
+                'approvals.reviewer',   // 👈 penting: load semua approval + usernya
+            ])
             ->orderByDesc('submitted_at');
+
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -305,11 +325,10 @@ class CheckSheetController extends Controller
     {
         $this->authorizeReview();
 
-        // normalize input biar anti salah value dari UI
-        $raw = $request->input('status');
+        // normalisasi input dari UI
+        $raw    = $request->input('status');
         $status = strtolower(trim((string) $raw));
 
-        // map sinonim UI -> nilai DB
         if ($status === 'approve') $status = 'approved';
         if ($status === 'reject')  $status = 'rejected';
 
@@ -317,17 +336,76 @@ class CheckSheetController extends Controller
 
         $data = $request->validate([
             'status' => ['required', Rule::in(['under_review','approved','rejected'])],
+            'note'   => ['nullable','string'],
         ], [
             'status.in' => 'Status tidak valid.',
         ]);
 
-        $submission->status      = $data['status'];
-        $submission->reviewed_by = auth()->id();
-        $submission->reviewed_at = now();
+        $user = auth()->user();
+
+        // 1) Kalau cuma mau ubah jadi "UNDER REVIEW" saja
+        if ($data['status'] === 'under_review') {
+            $submission->status      = 'under_review';
+            $submission->reviewed_by = $user->id;
+            $submission->reviewed_at = now();
+            $submission->save();
+
+            return back()->with('success', 'Status diubah ke UNDER REVIEW.');
+        }
+
+        // 2) APPROVED / REJECTED -> catat ke tabel approvals
+        CheckSheetApproval::updateOrCreate(
+            [
+                'check_sheet_submission_id' => $submission->id,
+                'reviewer_id'               => $user->id,
+            ],
+            [
+                'status' => $data['status'] === 'approved' ? 'approved' : 'rejected',
+                'note'   => $data['note'] ?? null,
+            ]
+        );
+
+        // 3) Baca aturan dari meta form
+        $meta = $submission->checkSheet->meta ?? [];
+        $flow = $meta['approval_flow'] ?? [];
+
+        $required = (int)($flow['required'] ?? 1);
+        if ($required < 1) $required = 1;
+
+        // Hitung approval & reject yang sudah masuk
+        $approvedCount = $submission->approvals()
+            ->where('status', 'approved')
+            ->count();
+
+        $rejectedCount = $submission->approvals()
+            ->where('status', 'rejected')
+            ->count();
+
+        // 4) Tentukan status akhir submission
+        if ($rejectedCount > 0 || $data['status'] === 'rejected') {
+            // Ada yang nolak: final REJECTED
+            $submission->status      = 'rejected';
+            $submission->reviewed_by = $user->id;
+            $submission->reviewed_at = now();
+
+        } elseif ($approvedCount >= $required) {
+            // Sudah memenuhi jumlah approval
+            $submission->status      = 'approved';
+            $submission->reviewed_by = $user->id;   // approver terakhir
+            $submission->reviewed_at = now();
+
+        } else {
+            // Belum cukup approve, masih proses
+            $submission->status      = 'under_review';
+            $submission->reviewed_by = $user->id;
+            $submission->reviewed_at = now();
+        }
+
         $submission->save();
 
-        return back()->with('success', 'Status submission diperbarui.');
+        return back()->with('success', 'Approval berhasil dicatat.');
     }
+
 
     // =========================
     // HELPER

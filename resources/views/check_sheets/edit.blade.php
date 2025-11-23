@@ -3,22 +3,31 @@
 
 @section('content')
 @php
+  // ----- Schema JSON lama (optional) -----
   $defaultSchema = old('form_schema') ?: (
       $checkSheet->form_schema ?? json_encode([
-        "title" => $checkSheet->title ?? "Check Sheet",
+        "title"   => $checkSheet->title ?? "Check Sheet",
         "version" => (int)($checkSheet->version ?? 1),
-        "fields" => []
+        "fields"  => []
       ], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)
   );
 
-  // status valid sesuai controller
+  // Status
   $st = old('status', $checkSheet->status);
+
+  // ----- Fields (Checklist Builder) -----
+  $defaultFields = old('fields', $checkSheet->fields ?? []);
+  if (!is_array($defaultFields) || !count($defaultFields)) {
+      $defaultFields = [
+          ['label' => 'Contoh: Temperatur sesuai', 'key' => 'temperatur_ok'],
+      ];
+  }
 @endphp
 
 <div class="bg-slate-50">
   <div
     class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6"
-    x-data="checkSheetEdit(@js($defaultSchema))"
+    x-data="checkSheetEdit(@js($defaultSchema), @js($defaultFields))"
   >
 
     {{-- Page Header --}}
@@ -126,7 +135,85 @@
 
         <div class="border-t border-slate-100"></div>
 
-        {{-- Schema Builder --}}
+        {{-- =================== CHECKLIST BUILDER =================== --}}
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Checklist Builder</h2>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Tambah/hapus item pengecekan. Disimpan di kolom <code>fields</code>.
+              </p>
+            </div>
+            <button type="button"
+                    @click="addRow()"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#05727d] text-white text-xs font-semibold hover:bg-[#0894a0]">
+              <span class="text-lg leading-none">+</span>
+              Tambah Baris
+            </button>
+          </div>
+
+          <div class="border border-slate-200 rounded-2xl overflow-hidden text-xs">
+            <table class="min-w-full">
+              <thead class="bg-slate-50 text-slate-500 uppercase tracking-wide">
+                <tr>
+                  <th class="px-3 py-2 w-10 text-left">No</th>
+                  <th class="px-3 py-2 text-left">Label Item</th>
+                  <th class="px-3 py-2 text-left w-48">Key (Name)</th>
+                  <th class="px-3 py-2 text-right w-12">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, idx) in fields" :key="idx">
+                  <tr class="border-t border-slate-100 bg-white">
+                    <td class="px-3 py-2 align-top text-slate-500" x-text="idx + 1"></td>
+
+                    {{-- Label --}}
+                    <td class="px-3 py-2 align-top">
+                      <input type="text"
+                             class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none
+                                    focus:ring-[#b7e9ec] focus:border-[#05727d]"
+                             :name="`fields[${idx}][label]`"
+                             x-model="row.label"
+                             placeholder="Contoh: Temperatur sesuai">
+                    </td>
+
+                    {{-- Key --}}
+                    <td class="px-3 py-2 align-top">
+                      <input type="text"
+                             class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none
+                                    focus:ring-[#b7e9ec] focus:border-[#05727d]"
+                             :name="`fields[${idx}][key]`"
+                             x-model="row.key"
+                             @input="row.key = slugify(row.key)"
+                             @blur="autoKey(idx)"
+                             placeholder="contoh: temperatur_ok">
+                      <div class="text-[10px] text-slate-400 mt-0.5">
+                        Dipakai sebagai nama field di payload (<code>data[key]</code>).
+                      </div>
+                    </td>
+
+                    {{-- Aksi --}}
+                    <td class="px-3 py-2 align-top text-right">
+                      <button type="button"
+                              @click="removeRow(idx)"
+                              class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100">
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          @error('fields')
+            <div class="text-xs text-rose-600 mt-1">{{ $message }}</div>
+          @enderror
+        </div>
+
+        <div class="border-t border-slate-100"></div>
+
+        {{-- =================== SCHEMA BUILDER (JSON) =================== --}}
         <div class="space-y-3">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
             <div>
@@ -192,14 +279,42 @@
 </div>
 
 <script>
-  function checkSheetEdit(defaultSchema) {
+  function checkSheetEdit(defaultSchema, defaultFields) {
     return {
+      // schema JSON lama
       schema: defaultSchema,
       schemaValid: true,
+
+      // checklist builder
+      fields: defaultFields || [],
+
       showToast: false,
       toastMsg: '',
       toastDanger: false,
 
+      // ---------- Checklist ----------
+      addRow() {
+        this.fields.push({label: '', key: ''});
+      },
+      removeRow(idx) {
+        if (this.fields.length <= 1) return;
+        this.fields.splice(idx, 1);
+      },
+      autoKey(idx) {
+        const row = this.fields[idx];
+        if (row && !row.key && row.label) {
+          row.key = this.slugify(row.label);
+        }
+      },
+      slugify(str) {
+        return (str || '')
+          .toString()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')
+          .replace(/^_+|_+$/g, '');
+      },
+
+      // ---------- Schema JSON ----------
       validateSchema() {
         try {
           JSON.parse(this.schema);
