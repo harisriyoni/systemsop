@@ -66,7 +66,7 @@
         @forelse(($logs ?? []) as $log)
           <tr class="hover:bg-[#05727d]/5 transition">
             <td class="px-4 py-3 whitespace-nowrap">
-              {{ \Carbon\Carbon::parse($log->created_at)->format('d M Y H:i') }}
+              {{ \Carbon\Carbon::parse($log['at'] ?? null)->format('d M Y H:i') ?? '-' }}
             </td>
             <td class="px-4 py-3 whitespace-nowrap font-semibold text-slate-800">
               {{ $log->action ?? '-' }}

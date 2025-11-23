@@ -63,12 +63,16 @@
 
     $notifCount = $notifCount ?? 0;
 
-    // SOP aktif dari route (ada kalau di show/edit/versions/history)
+    // SOP aktif dari route (ada kalau di show/edit/versions/history PER SOP)
     $currentSop = request()->route('sop');
 
-    // URL versions/history (GA USAH NULL, fallback aja ke index)
-    $versionsUrl = $currentSop ? route('sop.versions', $currentSop) : route('sop.index');
-    $historyUrl  = $currentSop ? route('sop.history',  $currentSop) : route('sop.index');
+    // ===== URL GLOBAL =====
+    $versionsGlobalUrl = route('sop.versions.index'); // latest per code
+    $historyGlobalUrl  = route('sop.history.index');  // semua record/history
+
+    // ===== URL PER SOP (fallback ke global) =====
+    $versionsUrl = $currentSop ? route('sop.versions', $currentSop) : $versionsGlobalUrl;
+    $historyUrl  = $currentSop ? route('sop.history',  $currentSop) : $historyGlobalUrl;
 @endphp
 
 <body class="bg-slate-50 min-h-screen text-slate-800">
@@ -177,11 +181,11 @@
             {{-- SOP Management --}}
             <a href="{{ route('sop.index') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-               {{ request()->routeIs('sop.index','sop.show','sop.edit','sop.versions','sop.history')
+               {{ request()->routeIs('sop.index','sop.show','sop.edit')
                     ? 'bg-[#05727d] text-white shadow-sm'
                     : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('sop.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                    {{ request()->routeIs('sop.index','sop.show','sop.edit') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round"
                               d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
@@ -234,40 +238,50 @@
             </a>
             @endif
 
-            {{-- Versions SOP (BUTTON, ALWAYS CLICKABLE) --}}
+            {{-- Versions SOP (global / per SOP auto) --}}
             <button type="button"
                 onclick="window.location='{{ $versionsUrl }}'"
                 class="group w-full flex items-center gap-3 px-3 py-2 rounded-xl transition ml-3 text-left
-                {{ request()->routeIs('sop.versions')
+                {{ request()->routeIs('sop.versions','sop.versions.index')
                     ? 'bg-[#05727d] text-white shadow-sm'
                     : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-8 h-8 rounded-lg grid place-items-center
-                    {{ request()->routeIs('sop.versions')
+                    {{ request()->routeIs('sop.versions','sop.versions.index')
                         ? 'bg-white/15'
                         : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-4 h-4 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v6H4zM4 14h16v6H4z" />
                     </svg>
                 </div>
-                <span x-show="!collapsed" x-transition class="text-xs">Versions SOP</span>
+                <span x-show="!collapsed" x-transition class="text-xs">
+                    Versions SOP
+                    @if(!$currentSop)
+                      <span class="text-[10px] opacity-70">(Latest)</span>
+                    @endif
+                </span>
             </button>
 
-            {{-- History SOP (BUTTON, ALWAYS CLICKABLE) --}}
+            {{-- History SOP (global / per SOP auto) --}}
             <button type="button"
                 onclick="window.location='{{ $historyUrl }}'"
                 class="group w-full flex items-center gap-3 px-3 py-2 rounded-xl transition ml-3 text-left
-                {{ request()->routeIs('sop.history')
+                {{ request()->routeIs('sop.history','sop.history.index')
                     ? 'bg-[#05727d] text-white shadow-sm'
                     : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-8 h-8 rounded-lg grid place-items-center
-                    {{ request()->routeIs('sop.history')
+                    {{ request()->routeIs('sop.history','sop.history.index')
                         ? 'bg-white/15'
                         : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-4 h-4 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </div>
-                <span x-show="!collapsed" x-transition class="text-xs">History SOP</span>
+                <span x-show="!collapsed" x-transition class="text-xs">
+                    History SOP
+                    @if(!$currentSop)
+                      <span class="text-[10px] opacity-70">(All)</span>
+                    @endif
+                </span>
             </button>
 
             {{-- CHECK SHEET GROUP --}}

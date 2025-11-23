@@ -51,6 +51,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('profile')->name('profile.')->group(function () {
         Route::get('/', [ProfileController::class, 'show'])->name('show');
         Route::get('/edit', [ProfileController::class, 'edit'])->name('edit');
+
+        // update profile data
         Route::patch('/', [ProfileController::class, 'update'])->name('update');
 
         Route::patch('/password', [ProfileController::class, 'updatePassword'])
@@ -106,7 +108,8 @@ Route::middleware('auth')->group(function () {
             ->name('edit')
             ->middleware('role:admin,produksi');
 
-        Route::patch('/{sop}', [SopController::class, 'update'])
+        // ✅ FIX: update SOP terima PUT & PATCH
+        Route::match(['put', 'patch'], '/{sop}', [SopController::class, 'update'])
             ->name('update')
             ->middleware('role:admin,produksi');
 
