@@ -9,7 +9,8 @@
 
   if ($user) {
       if (!empty($user->avatar_path)) {
-          $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($user->avatar_path);
+          // avatar_path di DB harus bentuk: "avatars/namafile.png"
+          $photo = asset('storage/' . ltrim($user->avatar_path, '/'));
       } elseif (!empty($user->photo_url)) {
           $photo = $user->photo_url;
       }

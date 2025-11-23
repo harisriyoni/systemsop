@@ -13,13 +13,11 @@
    * - fallback ke photo_url (kalau masih ada)
    */
   $photo = null;
+
   if ($user) {
       if (!empty($user->avatar_path)) {
-          $photo = $user->avatar_path;
-
-          if (!str_starts_with($photo, 'http')) {
-              $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($photo);
-          }
+          // avatar_path di DB harus bentuk: "avatars/namafile.png"
+          $photo = asset('storage/' . ltrim($user->avatar_path, '/'));
       } elseif (!empty($user->photo_url)) {
           $photo = $user->photo_url;
       }

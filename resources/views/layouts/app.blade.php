@@ -48,15 +48,23 @@
 
     // ================= AVATAR USER =================
     $photo = null;
+
     if ($user) {
+        // 1. avatar_path (utama)
         if (!empty($user->avatar_path)) {
-            $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($user->avatar_path);
-        } elseif (!empty($user->photo_url)) {
-            $photo = $user->photo_url;
-        } elseif (!empty($user->avatar_url)) {
+            $photo = asset('storage/' . ltrim($user->avatar_path, '/'));
+
+        // 2. avatar_url (full URL dari API luar)
+        } elseif (!empty($user->avatar_url) && str_starts_with($user->avatar_url, 'http')) {
             $photo = $user->avatar_url;
+
+        // 3. photo_url (backup lama)
+        } elseif (!empty($user->photo_url) && str_starts_with($user->photo_url, 'http')) {
+            $photo = $user->photo_url;
+
+        // 4. profile_photo_path (Laravel Jetstream / Fortify default)
         } elseif (!empty($user->profile_photo_path)) {
-            $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($user->profile_photo_path);
+            $photo = asset('storage/' . ltrim($user->profile_photo_path, '/'));
         }
     }
 
