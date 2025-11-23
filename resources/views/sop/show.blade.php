@@ -4,61 +4,56 @@
 
 @section('content')
 @php
-  // --- Normalisasi photos biar aman (local + hostinger) ---
+  // --- Normalisasi photos biar aman (local + hosting) ---
   $rawPhotos = $sop->photos ?? [];
-if (is_string($rawPhotos)) {
+  if (is_string($rawPhotos)) {
     $rawPhotos = json_decode($rawPhotos, true) ?: [];
-}
+  }
 
-$photos = [];
-
-foreach ($rawPhotos as $p) {
-
-    // Ambil path + desc
+  $photos = [];
+  foreach ($rawPhotos as $p) {
     if (is_string($p)) {
-        $path = $p;
-        $desc = null;
+      $path = $p;
+      $desc = null;
     } elseif (is_array($p)) {
-        $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
-        $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
+      $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
+      $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
     } else {
-        continue;
+      $path = null;
+      $desc = null;
     }
 
-    if (!$path) continue;
+    if (!$path) {
+      continue;
+    }
 
-    // Jika URL penuh → pakai langsung
-    if (Str::startsWith($path, ['http://', 'https://', '//'])) {
-        $url = $path;
+    // Kalau sudah full URL -> pakai langsung
+    if (Str::startsWith($path, ['http://','https://','//'])) {
+      $url = $path;
     } else {
-        // NORMALISASI: buang prefix yang salah
-        // contoh yang masuk DB:
-        // - sops/xxx.png
-        // - storage/sops/xxx.png
-        // - storage/app/public/sops/xxx.png
-        $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($path, '/'));
+      // BERSIHKAN prefix yg mungkin ikut ke DB:
+      // "sops/abc.png"
+      // "storage/sops/abc.png"
+      // "storage/app/public/sops/abc.png"
+      $cleanPath = preg_replace('#^storage/(app/public/)?#', '', ltrim($path, '/'));
+      // sekarang idealnya: "sops/abc.png"
 
-        // BASE DOMAIN
-        $base = rtrim(config('app.url'), '/');
-
-        // === URL FINAL (SAMA PERSIS DENGAN AVATAR) ===
-        // Local
-        if (app()->environment('local')) {
-            $url = $base.'/storage/'.$clean;
-        } 
-        // Hostinger / production
-        else {
-            $url = $base.'/storage/app/public/'.$clean;
-        }
+      if (app()->environment('local')) {
+        // LOCAL (Laravel default: public/storage -> storage/app/public)
+        // URL benar: /storage/sops/abc.png
+        $url = '/storage/' . $cleanPath;
+      } else {
+        // HOSTINGER kamu maunya: /storage/app/public/sops/abc.png
+        $url = '/storage/app/public/' . $cleanPath;
+      }
     }
 
     $photos[] = [
-        'path' => $path,
-        'url'  => $url,
-        'desc' => $desc,
+      'path' => $path,
+      'url'  => $url,
+      'desc' => $desc,
     ];
-}
-
+  }
   
 
   // === Mapping status pakai warna brand teal ===

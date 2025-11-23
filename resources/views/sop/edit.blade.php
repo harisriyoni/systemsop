@@ -1,8 +1,10 @@
-@extends('layouts.app')
+@extends('layouts.app') 
 @section('title', 'Edit SOP (Builder)')
 
 @section('content')
 @php
+  use Illuminate\Support\Str;
+
   $user = auth()->user();
 
   // =========================
@@ -33,28 +35,64 @@
   if (is_string($rawExtra)) $rawExtra = json_decode($rawExtra, true) ?: [];
   if (!is_array($rawExtra)) $rawExtra = [];
 
+  // tambahkan id unik biar Alpine enak dipakai
+  foreach ($rawExtra as $idx => $row) {
+      if (is_array($row)) {
+          $rawExtra[$idx]['id'] = $row['id'] ?? (microtime(true) . $idx);
+      }
+  }
+
   // =========================
   // NORMALISASI PHOTOS (SAMA DENGAN SHOW)
   // =========================
   $rawPhotos = $sop->photos ?? [];
-  if (is_string($rawPhotos)) $rawPhotos = json_decode($rawPhotos, true) ?: [];
+  if (is_string($rawPhotos)) {
+    $rawPhotos = json_decode($rawPhotos, true) ?: [];
+  }
 
   $photos = [];
   foreach ($rawPhotos as $p) {
-      if (is_string($p)) {
-          $path = $p; $desc = null;
-      } elseif (is_array($p)) {
-          $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
-          $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
-      } else {
-          $path = null; $desc = null;
-      }
+    if (is_string($p)) {
+      $path = $p;
+      $desc = null;
+    } elseif (is_array($p)) {
+      $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
+      $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
+    } else {
+      $path = null;
+      $desc = null;
+    }
 
-      if ($path) {
-          $isHttp = \Illuminate\Support\Str::startsWith($path, ['http://','https://','//']);
-          $url = $isHttp ? $path : asset('storage/' . ltrim($path, '/'));
-          $photos[] = ['path'=>$path, 'url'=>$url, 'desc'=>$desc];
+    if (!$path) {
+      continue;
+    }
+
+    // Kalau sudah full URL -> pakai langsung
+    if (Str::startsWith($path, ['http://','https://','//'])) {
+      $url = $path;
+    } else {
+      // BERSIHKAN prefix yg mungkin ikut ke DB:
+      // "sops/abc.png"
+      // "storage/sops/abc.png"
+      // "storage/app/public/sops/abc.png"
+      $cleanPath = preg_replace('#^storage/(app/public/)?#', '', ltrim($path, '/'));
+      // sekarang idealnya: "sops/abc.png"
+
+      if (app()->environment('local')) {
+        // LOCAL (Laravel default: public/storage -> storage/app/public)
+        // URL benar: /storage/sops/abc.png
+        $url = '/storage/' . $cleanPath;
+      } else {
+        // HOSTINGER: /storage/app/public/sops/abc.png
+        $url = '/storage/app/public/' . $cleanPath;
       }
+    }
+
+    $photos[] = [
+      'path' => $path,
+      'url'  => $url,
+      'desc' => $desc,
+    ];
   }
 @endphp
 
@@ -125,25 +163,25 @@
     },
 
     // ---------- FOTO BARU ----------
-    photos: [{ id: Date.now(), name: '', preview: null }],
+    newPhotos: [{ id: Date.now(), name: '', preview: null }],
 
     addPhoto() {
-      this.photos.push({ id: Date.now() + Math.random(), name: '', preview: null });
+      this.newPhotos.push({ id: Date.now() + Math.random(), name: '', preview: null });
     },
 
     removePhoto(i) {
-      if (this.photos.length === 1) return;
-      if (this.photos[i].preview) URL.revokeObjectURL(this.photos[i].preview);
-      this.photos.splice(i, 1);
+      if (this.newPhotos.length === 1) return;
+      if (this.newPhotos[i].preview) URL.revokeObjectURL(this.newPhotos[i].preview);
+      this.newPhotos.splice(i, 1);
     },
 
     handlePhotoChange(e, index) {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      if (this.photos[index].preview) URL.revokeObjectURL(this.photos[index].preview);
-      this.photos[index].name = file.name;
-      this.photos[index].preview = URL.createObjectURL(file);
+      if (this.newPhotos[index].preview) URL.revokeObjectURL(this.newPhotos[index].preview);
+      this.newPhotos[index].name = file.name;
+      this.newPhotos[index].preview = URL.createObjectURL(file);
     },
 
     // ---------- INIT + SYNC ----------
@@ -549,7 +587,7 @@
       </div>
 
       {{-- =========================
-          SECTION: FOTO BARU (MODEL CREATE)
+          SECTION: FOTO BARU
       ========================== --}}
       <div class="bg-white border border-[#05727d]/20 rounded-xl p-4">
         <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
@@ -562,14 +600,14 @@
         </div>
 
         <div class="grid md:grid-cols-3 gap-3">
-          <template x-for="(photo, index) in photos" :key="photo.id">
+          <template x-for="(photo, index) in newPhotos" :key="photo.id">
             <div class="border border-slate-200 rounded-lg p-2 flex flex-col gap-2 bg-slate-50/40">
               <div class="text-[11px] text-slate-600 flex items-center justify-between">
                 <span>Foto <span x-text="index + 1"></span></span>
                 <button type="button"
                         @click="removePhoto(index)"
                         class="text-rose-500 hover:text-rose-600 text-[11px]"
-                        x-show="photos.length > 1">
+                        x-show="newPhotos.length > 1">
                   Hapus
                 </button>
               </div>
