@@ -1,100 +1,215 @@
 @extends('layouts.app')
-@section('title', 'Edit SOP')
+@section('title', 'Edit SOP (Builder)')
 
 @section('content')
 @php
   $user = auth()->user();
 
-  // --- Normalisasi photos biar sama dengan show.blade ---
-  $rawPhotos = $sop->photos ?? [];
-  if (is_string($rawPhotos)) {
-      $rawPhotos = json_decode($rawPhotos, true) ?: [];
+  // =========================
+  // NORMALISASI BUILDER_SCHEMA
+  // =========================
+  $rawBuilder = $sop->builder_schema ?? null;
+
+  // kalau builder_schema kosong, coba ambil dari meta['builder_schema']
+  if (!$rawBuilder) {
+      $metaRaw = $sop->meta ?? [];
+      if (is_string($metaRaw)) $metaRaw = json_decode($metaRaw, true) ?: [];
+      $rawBuilder = $metaRaw['builder_schema'] ?? [];
   }
+
+  if (is_string($rawBuilder)) {
+      $rawBuilder = json_decode($rawBuilder, true) ?: [];
+  }
+  if (!is_array($rawBuilder)) $rawBuilder = [];
+
+  // =========================
+  // NORMALISASI EXTRA_FIELDS
+  // =========================
+  $metaRaw = $sop->meta ?? [];
+  if (is_string($metaRaw)) $metaRaw = json_decode($metaRaw, true) ?: [];
+  if (!is_array($metaRaw)) $metaRaw = [];
+
+  $rawExtra = $metaRaw['extra_fields'] ?? [];
+  if (is_string($rawExtra)) $rawExtra = json_decode($rawExtra, true) ?: [];
+  if (!is_array($rawExtra)) $rawExtra = [];
+
+  // =========================
+  // NORMALISASI PHOTOS (SAMA DENGAN SHOW)
+  // =========================
+  $rawPhotos = $sop->photos ?? [];
+  if (is_string($rawPhotos)) $rawPhotos = json_decode($rawPhotos, true) ?: [];
 
   $photos = [];
   foreach ($rawPhotos as $p) {
       if (is_string($p)) {
-          $path = $p;
-          $desc = null;
+          $path = $p; $desc = null;
       } elseif (is_array($p)) {
           $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
           $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
       } else {
-          $path = null;
-          $desc = null;
+          $path = null; $desc = null;
       }
 
       if ($path) {
           $isHttp = \Illuminate\Support\Str::startsWith($path, ['http://','https://','//']);
           $url = $isHttp ? $path : asset('storage/' . ltrim($path, '/'));
-          $photos[] = [
-            'path' => $path,
-            'url'  => $url,
-            'desc' => $desc,
-          ];
+          $photos[] = ['path'=>$path, 'url'=>$url, 'desc'=>$desc];
       }
   }
 @endphp
 
 <div
   x-data="{
-    newPhotos: [{ id: Date.now(), name:'', preview:null }],
-    addNewPhoto(){ this.newPhotos.push({ id: Date.now(), name:'', preview:null }); },
-    removeNewPhoto(i){
-      if(this.newPhotos.length===1) return;
-      if(this.newPhotos[i].preview) URL.revokeObjectURL(this.newPhotos[i].preview);
-      this.newPhotos.splice(i,1);
+    // ---------- OPSI FIELD OPSIONAL ----------
+    showFields: {
+      product: true,
+      line: true,
+      effective_from: true,
+      effective_to: {{ $sop->effective_to ? 'true' : 'false' }},
+      content: true,
+      is_public: true,
+      pin: true,
     },
-    setNewPhoto(i, e){
+
+    toggleField(key) {
+      this.showFields[key] = !this.showFields[key];
+    },
+
+    // ---------- SOP BUILDER ----------
+    builderSections: @js($rawBuilder),
+
+    addSection() {
+      this.builderSections.push({
+        id: Date.now() + Math.random(),
+        name: 'Section ' + (this.builderSections.length + 1),
+        items: [
+          { id: Date.now() + Math.random(), label: '', type: 'checkbox', required: true },
+        ],
+      });
+    },
+
+    removeSection(index) {
+      if (this.builderSections.length === 1) return;
+      this.builderSections.splice(index, 1);
+    },
+
+    addItem(sIndex) {
+      this.builderSections[sIndex].items.push({
+        id: Date.now() + Math.random(),
+        label: '',
+        type: 'checkbox',
+        required: true,
+      });
+    },
+
+    removeItem(sIndex, iIndex) {
+      const items = this.builderSections[sIndex].items;
+      if (items.length === 1) return;
+      items.splice(iIndex, 1);
+    },
+
+    // ---------- INFORMASI TAMBAHAN ----------
+    extraFields: @js($rawExtra),
+
+    addExtraField() {
+      this.extraFields.push({
+        id: Date.now() + Math.random(),
+        label: '',
+        value: '',
+      });
+    },
+
+    removeExtraField(index) {
+      if (this.extraFields.length === 1) return;
+      this.extraFields.splice(index, 1);
+    },
+
+    // ---------- FOTO BARU ----------
+    photos: [{ id: Date.now(), name: '', preview: null }],
+
+    addPhoto() {
+      this.photos.push({ id: Date.now() + Math.random(), name: '', preview: null });
+    },
+
+    removePhoto(i) {
+      if (this.photos.length === 1) return;
+      if (this.photos[i].preview) URL.revokeObjectURL(this.photos[i].preview);
+      this.photos.splice(i, 1);
+    },
+
+    handlePhotoChange(e, index) {
       const file = e.target.files?.[0];
-      this.newPhotos[i].name = file?.name || '';
-      if(this.newPhotos[i].preview) URL.revokeObjectURL(this.newPhotos[i].preview);
-      this.newPhotos[i].preview = file ? URL.createObjectURL(file) : null;
-    }
+      if (!file) return;
+
+      if (this.photos[index].preview) URL.revokeObjectURL(this.photos[index].preview);
+      this.photos[index].name = file.name;
+      this.photos[index].preview = URL.createObjectURL(file);
+    },
+
+    // ---------- INIT + SYNC ----------
+    init() {
+      if (!this.builderSections || !this.builderSections.length) {
+        this.builderSections = [
+          {
+            id: Date.now(),
+            name: 'Section 1',
+            items: [
+              { id: Date.now() + 1, label: '', type: 'checkbox', required: true },
+            ],
+          },
+        ];
+      }
+
+      if (!this.extraFields || !this.extraFields.length) {
+        this.extraFields = [{ id: Date.now() + 1000, label: '', value: '' }];
+      }
+    },
+
+    syncBeforeSubmit() {
+      if (this.$refs.builderSchemaField) {
+        this.$refs.builderSchemaField.value = JSON.stringify(this.builderSections);
+      }
+      if (this.$refs.extraFieldsField) {
+        this.$refs.extraFieldsField.value = JSON.stringify(this.extraFields);
+      }
+    },
   }"
-  class="space-y-4"
+  class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm overflow-hidden"
 >
 
-  {{-- ================= HEADER ================= --}}
-  <div class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm p-5">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+  {{-- HEADER --}}
+  <div class="bg-gradient-to-r from-[#05727d] to-[#05727d] text-white px-5 md:px-6 py-4">
+    <div class="flex items-start justify-between gap-3">
       <div>
-        <h2 class="text-base font-semibold text-slate-900">Edit SOP</h2>
-        <p class="text-xs text-slate-500 mt-1">
-          Kode: <span class="font-semibold text-[#05727d]">{{ $sop->code }}</span>
-          • Versi: <span class="font-semibold">v{{ $sop->version ?? 1 }}</span>
+        <div class="flex items-center gap-2 text-[11px] text-white/60 mb-1">
+          <a href="{{ route('sop.index') }}" class="hover:text-white">SOP Management</a>
+          <span>/</span>
+          <a href="{{ route('sop.show',$sop) }}" class="hover:text-white">Detail SOP</a>
+          <span>/</span>
+          <span class="font-medium text-white">Edit (Builder)</span>
+        </div>
+        <h2 class="text-base font-semibold leading-tight">Edit SOP dengan Builder</h2>
+        <p class="text-xs text-white/80 mt-1">
+          SOP approved akan turun jadi Draft dan versi naik otomatis saat disimpan.
         </p>
-        <p class="text-[11px] text-slate-400 mt-1">
-          Jika SOP sebelumnya <b>Approved</b>, saat disimpan akan jadi <b>Draft</b> dan versi naik otomatis.
-        </p>
+        <div class="text-[11px] text-white/70 mt-1">
+          Kode: <b class="text-white">{{ $sop->code }}</b> • Versi: <b class="text-white">v{{ $sop->version ?? 1 }}</b>
+        </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        @if(Route::has('sop.show'))
-          <a href="{{ route('sop.show', $sop) }}"
-             class="inline-flex items-center px-4 py-2 rounded-xl
-                    bg-white border border-slate-200 text-slate-700
-                    hover:bg-slate-50 text-xs font-semibold transition">
-            Kembali
-          </a>
-        @endif
+      <div class="text-right text-xs">
+        <div class="text-white/70 mb-1">User</div>
+        <div class="font-semibold">{{ $user?->name ?? '-' }}</div>
       </div>
     </div>
   </div>
 
-  {{-- ================= FORM ================= --}}
-  <form id="sopEditForm"
-        method="POST"
-        action="{{ route('sop.update', $sop) }}"
-        enctype="multipart/form-data"
-        class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm p-5 space-y-5"
-  >
-    @csrf
-    @method('PUT')
+  {{-- BODY --}}
+  <div class="px-5 md:px-6 py-5 space-y-4">
 
-    {{-- Error global --}}
-    @if($errors->any())
-      <div class="text-xs rounded-lg bg-[#05727d]/5 border border-[#05727d]/30 text-[#05727d] px-3 py-2">
+    {{-- ERROR GLOBAL --}}
+    @if ($errors->any())
+      <div class="rounded-xl bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 text-xs">
         <div class="font-semibold mb-1">Periksa kembali input:</div>
         <ul class="list-disc pl-4 space-y-0.5">
           @foreach($errors->all() as $err)
@@ -104,276 +219,431 @@
       </div>
     @endif
 
-    {{-- ===== Informasi Utama ===== --}}
-    <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
-      <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
-        Informasi Utama
-      </div>
+    <form id="sopEditForm"
+          method="POST"
+          action="{{ route('sop.update', $sop) }}"
+          enctype="multipart/form-data"
+          x-on:submit.prevent="syncBeforeSubmit(); $el.submit()"
+          class="space-y-5">
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs text-slate-600 mb-1">Kode SOP <span class="text-rose-500">*</span></label>
-          <input type="text" name="code" value="{{ old('code', $sop->code) }}"
-                 class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                        {{ $errors->has('code')
-                            ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
-                            : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
-                 required>
-          @error('code') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
-        </div>
+      @csrf
+      @method('PUT')
 
-        <div>
-          <label class="block text-xs text-slate-600 mb-1">Judul SOP <span class="text-rose-500">*</span></label>
-          <input type="text" name="title" value="{{ old('title', $sop->title) }}"
-                 class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                        {{ $errors->has('title')
-                            ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
-                            : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
-                 required>
-          @error('title') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
-        </div>
+      {{-- HIDDEN: STRUCTURE & EXTRA FIELDS --}}
+      <input type="hidden" name="builder_schema" x-ref="builderSchemaField">
+      <input type="hidden" name="extra_fields" x-ref="extraFieldsField">
 
-        <div>
-          <label class="block text-xs text-slate-600 mb-1">Departemen <span class="text-rose-500">*</span></label>
-          <input type="text" name="department" value="{{ old('department', $sop->department) }}"
-                 class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                        {{ $errors->has('department')
-                            ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
-                            : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
-                 required>
-          @error('department') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
-        </div>
+      {{-- =========================
+          SECTION: INFORMASI UTAMA
+      ========================== --}}
+      <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
+            <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
+            Informasi Utama SOP
+          </div>
 
-        <div>
-          <label class="block text-xs text-slate-600 mb-1">Produk (Opsional)</label>
-          <input type="text" name="product" value="{{ old('product', $sop->product) }}"
-                 class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                        focus:ring-[#05727d]/15 focus:border-[#05727d]">
-        </div>
-      </div>
-    </div>
+          {{-- Pengaturan field opsional --}}
+          <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+            <span>Pengaturan Field:</span>
 
-    {{-- ===== Detail Operasional ===== --}}
-    <div class="bg-white border border-[#05727d]/20 rounded-xl p-4">
-      <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
-        Detail Operasional
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs text-slate-600 mb-1">Lini Produksi (Opsional)</label>
-          <input type="text" name="line" value="{{ old('line', $sop->line) }}"
-                 class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                        focus:ring-[#05727d]/15 focus:border-[#05727d]">
-        </div>
-
-        <div>
-          <label class="block text-xs text-slate-600 mb-1">Tanggal Berlaku Mulai</label>
-          <input type="date" name="effective_from" value="{{ old('effective_from', optional($sop->effective_from)->toDateString()) }}"
-                 class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                        focus:ring-[#05727d]/15 focus:border-[#05727d]">
-        </div>
-
-        <div class="md:col-span-2">
-          <label class="block text-xs text-slate-600 mb-1">Tanggal Berlaku Sampai</label>
-          <input type="date" name="effective_to" value="{{ old('effective_to', optional($sop->effective_to)->toDateString()) }}"
-                 class="w-full rounded-lg border px-3 py-2 text-sm outline-none
-                        {{ $errors->has('effective_to')
-                            ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
-                            : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}">
-          @error('effective_to') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
-        </div>
-      </div>
-    </div>
-
-    {{-- ===== FOTO LAMA (BISA DIHAPUS) ===== --}}
-    <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
-      <div class="flex items-center justify-between mb-3">
-        <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
-          <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
-          Foto/Lampiran Lama
-        </div>
-        <div class="text-[11px] text-slate-500">
-          Centang untuk menghapus foto lama.
-        </div>
-      </div>
-
-      @if(count($photos))
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          @foreach($photos as $p)
-            @php
-              $path = $p['path'] ?? null;
-              $url  = $p['url']  ?? null;
-              $desc = $p['desc'] ?? null;
-            @endphp
-
-            <label class="bg-white border border-[#05727d]/20 rounded-xl p-3 flex gap-3 cursor-pointer hover:bg-[#05727d]/5 transition">
-              <input type="checkbox" name="remove_photos[]" value="{{ $path }}"
-                     class="mt-1 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500">
-
-              <div class="flex-1 min-w-0">
-                <div class="h-28 w-full rounded-lg bg-slate-50 border border-slate-200 overflow-hidden grid place-items-center">
-                  @if($url)
-                    <img src="{{ $url }}" class="h-full w-full object-cover" alt="foto SOP">
-                  @else
-                    <div class="text-[11px] text-slate-400">Tidak ada preview</div>
-                  @endif
-                </div>
-
-                <div class="mt-2 text-[11px] text-slate-600 truncate">
-                  {{ $path }}
-                </div>
-
-                @if($desc)
-                  <div class="text-[11px] text-slate-500 mt-1">
-                    Deskripsi: <span class="font-medium">{{ $desc }}</span>
-                  </div>
-                @endif
-              </div>
+            <label class="inline-flex items-center gap-1">
+              <input type="checkbox" class="rounded border-slate-300" x-model="showFields.product">
+              <span>Produk</span>
             </label>
-          @endforeach
-        </div>
-      @else
-        <div class="text-sm text-slate-400 py-6 text-center">
-          Belum ada foto lama.
-        </div>
-      @endif
-    </div>
 
-    {{-- ===== FOTO BARU (BISA TAMBAH) ===== --}}
-    <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
-      <div class="flex items-center justify-between mb-3">
-        <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
-          <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
-          Tambah Foto Baru
+            <label class="inline-flex items-center gap-1">
+              <input type="checkbox" class="rounded border-slate-300" x-model="showFields.line">
+              <span>Line Produksi</span>
+            </label>
+
+            <label class="inline-flex items-center gap-1">
+              <input type="checkbox" class="rounded border-slate-300" x-model="showFields.effective_from">
+              <span>Tanggal Berlaku Dari</span>
+            </label>
+
+            <label class="inline-flex items-center gap-1">
+              <input type="checkbox" class="rounded border-slate-300" x-model="showFields.effective_to">
+              <span>Tanggal Berlaku Sampai</span>
+            </label>
+
+            <label class="inline-flex items-center gap-1">
+              <input type="checkbox" class="rounded border-slate-300" x-model="showFields.is_public">
+              <span>Tersedia untuk Publik</span>
+            </label>
+
+            <label class="inline-flex items-center gap-1">
+              <input type="checkbox" class="rounded border-slate-300" x-model="showFields.pin">
+              <span>PIN Akses</span>
+            </label>
+          </div>
         </div>
-        <button type="button"
-                @click="addNewPhoto()"
-                class="px-3 py-1.5 rounded-lg bg-[#05727d] hover:bg-[#05727d]/90 text-white text-[11px] font-semibold shadow-sm">
-          + Tambah Foto
-        </button>
+
+        <div class="grid md:grid-cols-2 gap-4 text-sm">
+          {{-- Kode SOP --}}
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">
+              Kode SOP <span class="text-rose-500">*</span>
+            </label>
+            <input type="text" name="code" value="{{ old('code', $sop->code) }}"
+              class="w-full rounded-lg border px-3 py-2 outline-none
+                     {{ $errors->has('code')
+                        ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                        : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
+              required>
+            @error('code') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          {{-- Judul SOP --}}
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">
+              Judul SOP <span class="text-rose-500">*</span>
+            </label>
+            <input type="text" name="title" value="{{ old('title', $sop->title) }}"
+              class="w-full rounded-lg border px-3 py-2 outline-none
+                     {{ $errors->has('title')
+                        ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                        : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
+              required>
+            @error('title') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          {{-- Departemen --}}
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">
+              Departemen <span class="text-rose-500">*</span>
+            </label>
+            <input type="text" name="department" value="{{ old('department', $sop->department) }}"
+              class="w-full rounded-lg border px-3 py-2 outline-none
+                     {{ $errors->has('department')
+                        ? 'border-rose-300 focus:ring-rose-100 focus:border-rose-500'
+                        : 'border-slate-200 focus:ring-[#05727d]/15 focus:border-[#05727d]' }}"
+              required>
+            @error('department') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          {{-- Produk --}}
+          <div x-show="showFields.product">
+            <label class="block text-xs text-slate-600 mb-1">Produk</label>
+            <input type="text" name="product" value="{{ old('product', $sop->product) }}"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 outline-none
+                     focus:ring-[#05727d]/15 focus:border-[#05727d]">
+            @error('product') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          {{-- Line Produksi --}}
+          <div x-show="showFields.line">
+            <label class="block text-xs text-slate-600 mb-1">Line Produksi</label>
+            <input type="text" name="line" value="{{ old('line', $sop->line) }}"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 outline-none
+                     focus:ring-[#05727d]/15 focus:border-[#05727d]">
+            @error('line') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          {{-- Effective From --}}
+          <div x-show="showFields.effective_from">
+            <label class="block text-xs text-slate-600 mb-1">Tanggal Berlaku Dari</label>
+            <input type="date" name="effective_from"
+                   value="{{ old('effective_from', optional($sop->effective_from)->toDateString()) }}"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 outline-none
+                     focus:ring-[#05727d]/15 focus:border-[#05727d]">
+            @error('effective_from') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          {{-- Effective To --}}
+          <div x-show="showFields.effective_to">
+            <label class="block text-xs text-slate-600 mb-1">Tanggal Berlaku Sampai</label>
+            <input type="date" name="effective_to"
+                   value="{{ old('effective_to', optional($sop->effective_to)->toDateString()) }}"
+              class="w-full rounded-lg border px-3 py-2 outline-none
+                     {{ $errors->has('effective_to')
+                        ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-200'
+                        : 'border-slate-200 focus:border-[#05727d] focus:ring-[#05727d]/15' }}">
+            @error('effective_to') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          {{-- Is Public --}}
+          <div class="md:col-span-2" x-show="showFields.is_public">
+            <label class="inline-flex items-center gap-2 text-xs text-slate-700">
+              <input id="is_public" type="checkbox" name="is_public" value="1"
+                     class="h-4 w-4 rounded border-slate-300 text-[#05727d] focus:ring-[#05727d]"
+                     {{ old('is_public', $sop->is_public) ? 'checked' : '' }}>
+              <span>Tersedia untuk publik (QR tanpa login)</span>
+            </label>
+            @error('is_public') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          {{-- PIN --}}
+          <div x-show="showFields.pin">
+            <label class="block text-xs text-slate-600 mb-1">PIN Akses (Opsional)</label>
+            <input type="text" name="pin" value="{{ old('pin', $sop->pin) }}"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 outline-none
+                     focus:ring-[#05727d]/15 focus:border-[#05727d]">
+            @error('pin') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+        </div>
       </div>
 
-      <div class="flex gap-3 overflow-x-auto pb-2 flex-nowrap">
-        <template x-for="(p, i) in newPhotos" :key="p.id">
-          <div class="bg-white border border-[#05727d]/20 rounded-xl p-3 min-w-[280px] md:min-w-[320px] shrink-0">
-            <div class="flex items-start gap-3">
-              <div class="h-16 w-16 rounded-lg bg-slate-50 border border-slate-200 overflow-hidden grid place-items-center shrink-0">
-                <template x-if="p.preview">
-                  <img :src="p.preview" class="h-full w-full object-cover" alt="preview">
-                </template>
-                <template x-if="!p.preview">
-                  <svg class="w-6 h-6 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4-4a3 3 0 014 0l4 4M2 20h20M2 12l5-5a3 3 0 014 0l3 3m7-7v8"/>
-                  </svg>
-                </template>
-              </div>
+      {{-- =========================
+          SECTION: SOP BUILDER
+      ========================== --}}
+      <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
+            <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
+            SOP Builder – Struktur & Check Sheet
+          </div>
+          <button type="button"
+                  @click="addSection()"
+                  class="px-3 py-1.5 rounded-lg bg-[#05727d] hover:bg-[#05727d]/90 text-white text-[11px] font-semibold shadow-sm">
+            + Tambah Section
+          </button>
+        </div>
 
-              <div class="flex-1">
-                <label class="block text-[11px] text-slate-600 mb-1">File Foto</label>
-                <label class="flex items-center justify-between gap-3 w-full cursor-pointer
-                              rounded-lg border border-dashed border-[#05727d]/30 bg-white px-3 py-2 text-sm
-                              hover:bg-[#05727d]/5 transition">
-                  <div class="flex items-center gap-2 text-slate-600">
-                    <svg class="w-4 h-4 text-[#05727d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4-4a3 3 0 014 0l4 4M2 20h20M2 12l5-5a3 3 0 014 0l3 3m7-7v8"/>
-                    </svg>
-                    <span x-show="!p.name" class="text-[12px]">Pilih foto</span>
-                    <span x-show="p.name" class="font-semibold text-slate-800 text-[12px]" x-text="p.name"></span>
-                  </div>
-                  <span class="text-[11px] text-[#05727d] font-semibold">Upload</span>
-                  <input type="file" name="photos[]" accept="image/*" class="hidden"
-                         @change="setNewPhoto(i, $event)">
-                </label>
+        <p class="text-[11px] text-slate-500 mb-3">
+          Section = blok besar (Persiapan, Proses, Pembersihan, dst).
+          Item = baris yang nanti diisi operator di check sheet.
+        </p>
 
-                <div class="mt-3">
-                  <label class="block text-[11px] text-slate-600 mb-1">Deskripsi Foto</label>
-                  <input type="text" name="photo_desc[]"
-                         class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                                focus:ring-[#05727d]/15 focus:border-[#05727d]"
-                         placeholder="Cover / Step / Area kerja">
-                </div>
-              </div>
+        <template x-for="(section, sIndex) in builderSections" :key="section.id">
+          <div class="mb-4 border border-slate-200 rounded-lg p-3 bg-white">
+            <div class="flex items-center gap-2 mb-2">
+              <input type="text"
+                     x-model="section.name"
+                     class="flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs"
+                     placeholder="Nama Section">
+
+              <button type="button"
+                      @click="removeSection(sIndex)"
+                      class="text-[11px] text-rose-600 hover:underline"
+                      x-show="builderSections.length > 1">
+                Hapus Section
+              </button>
             </div>
 
-            <div class="mt-3 flex justify-end">
+            <div class="space-y-2">
+              <template x-for="(item, iIndex) in section.items" :key="item.id">
+                <div class="flex items-center gap-2">
+                  <input type="text"
+                         x-model="item.label"
+                         class="flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs"
+                         placeholder="Isi item ceklis...">
+
+                  <select x-model="item.type"
+                          class="rounded-md border border-slate-200 px-2 py-1 text-xs">
+                    <option value="checkbox">Checklist (Ya/Tidak)</option>
+                    <option value="number">Angka</option>
+                    <option value="text">Teks</option>
+                  </select>
+
+                  <label class="inline-flex items-center gap-1 text-[11px] text-slate-600">
+                    <input type="checkbox" x-model="item.required" class="rounded border-slate-300">
+                    <span>Wajib</span>
+                  </label>
+
+                  <button type="button"
+                          @click="removeItem(sIndex, iIndex)"
+                          class="text-[11px] text-rose-600 hover:underline"
+                          x-show="section.items.length > 1">
+                    Hapus
+                  </button>
+                </div>
+              </template>
+
               <button type="button"
-                      @click="removeNewPhoto(i)"
-                      :disabled="newPhotos.length===1"
-                      class="text-[11px] px-2 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                Hapus
+                      @click="addItem(sIndex)"
+                      class="mt-1 px-2 py-1 rounded-md border border-dashed border-slate-300 text-[11px] text-slate-600 hover:bg-slate-50">
+                + Tambah Item
               </button>
             </div>
           </div>
         </template>
       </div>
 
-      <div class="text-[11px] text-slate-500 mt-2">Geser ke kanan untuk melihat slot foto lainnya.</div>
-    </div>
-
-    {{-- ===== AKSES SOP ===== --}}
-    <div class="bg-white border border-[#05727d]/20 rounded-xl p-4">
-      <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
-        <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
-        Akses SOP
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <label class="flex items-center gap-2">
-          <input id="is_public" type="checkbox" name="is_public" value="1"
-                 class="h-4 w-4 rounded border-slate-300 text-[#05727d] focus:ring-[#05727d]"
-                 {{ old('is_public', $sop->is_public) ? 'checked' : '' }}>
-          <span class="text-xs text-slate-700">
-            Jadikan SOP publik (bisa dibuka via link/QR tanpa login)
-          </span>
-        </label>
-
-        <div>
-          <label class="block text-xs text-slate-600 mb-1">PIN Akses (Opsional)</label>
-          <input type="text" name="pin" value="{{ old('pin', $sop->pin) }}"
-                 class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none
-                        focus:ring-[#05727d]/15 focus:border-[#05727d]"
-                 placeholder="Contoh: 1234">
-          <div class="text-[11px] text-slate-400 mt-1">
-            Jika publik + PIN diisi, SOP perlu PIN sebelum dibuka.
+      {{-- =========================
+          SECTION: INFORMASI TAMBAHAN
+      ========================== --}}
+      <div class="bg-white border border-[#05727d]/20 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
+            <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
+            Informasi Tambahan (Opsional)
           </div>
+          <button type="button"
+                  @click="addExtraField()"
+                  class="px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-[11px] text-slate-700 hover:bg-slate-50">
+            + Tambah Field
+          </button>
+        </div>
+
+        <p class="text-[11px] text-slate-500 mb-3">
+          Field tambahan disimpan di kolom <code>meta</code>.
+        </p>
+
+        <div class="space-y-2">
+          <template x-for="(f, idx) in extraFields" :key="f.id">
+            <div class="grid md:grid-cols-12 gap-2 items-center">
+              <div class="md:col-span-4">
+                <input type="text"
+                       x-model="f.label"
+                       class="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
+                       placeholder="Label">
+              </div>
+              <div class="md:col-span-7">
+                <input type="text"
+                       x-model="f.value"
+                       class="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
+                       placeholder="Nilai">
+              </div>
+              <div class="md:col-span-1 text-right">
+                <button type="button"
+                        @click="removeExtraField(idx)"
+                        class="text-[11px] text-rose-500 hover:underline"
+                        x-show="extraFields.length > 1">
+                  Hapus
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
-    </div>
 
-    {{-- ===== ISI SOP ===== --}}
-    <div>
-      <label class="block text-xs text-slate-600 mb-1">Isi / Deskripsi SOP (Opsional)</label>
-      <textarea name="content" rows="7"
-                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none
-                       focus:ring-[#05727d]/15 focus:border-[#05727d]"
-                placeholder="Tuliskan isi SOP atau ringkasan langkah-langkahnya...">{{ old('content', $sop->content) }}</textarea>
-    </div>
+      {{-- =========================
+          SECTION: FOTO LAMA (HAPUS OPSIONAL)
+      ========================== --}}
+      <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
+            <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
+            Foto/Lampiran Lama
+          </div>
+          <div class="text-[11px] text-slate-500">Centang untuk menghapus foto lama.</div>
+        </div>
 
-    {{-- ===== ACTIONS ===== --}}
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 pt-2">
-      <div class="text-[11px] text-slate-400">
-        Terakhir update: {{ optional($sop->updated_at)->format('d M Y H:i') }}
+        @if(count($photos))
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            @foreach($photos as $p)
+              <label class="bg-white border border-[#05727d]/20 rounded-xl p-3 flex gap-3 cursor-pointer hover:bg-[#05727d]/5 transition">
+                <input type="checkbox" name="remove_photos[]" value="{{ $p['path'] }}"
+                       class="mt-1 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500">
+
+                <div class="flex-1 min-w-0">
+                  <div class="h-28 w-full rounded-lg bg-slate-50 border border-slate-200 overflow-hidden grid place-items-center">
+                    <img src="{{ $p['url'] }}" class="h-full w-full object-cover" alt="foto SOP">
+                  </div>
+
+                  <div class="mt-2 text-[11px] text-slate-600 truncate">{{ $p['path'] }}</div>
+
+                  @if(!empty($p['desc']))
+                    <div class="text-[11px] text-slate-500 mt-1">
+                      Deskripsi: <span class="font-medium">{{ $p['desc'] }}</span>
+                    </div>
+                  @endif
+                </div>
+              </label>
+            @endforeach
+          </div>
+        @else
+          <div class="text-sm text-slate-400 py-6 text-center">Belum ada foto lama.</div>
+        @endif
       </div>
 
-      <div class="flex items-center gap-2 justify-end">
-        @if(Route::has('sop.index'))
-          <a href="{{ route('sop.index') }}"
+      {{-- =========================
+          SECTION: FOTO BARU (MODEL CREATE)
+      ========================== --}}
+      <div class="bg-white border border-[#05727d]/20 rounded-xl p-4">
+        <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+          <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
+          Tambah Foto Baru
+        </div>
+
+        <div class="mb-2 text-[11px] text-slate-500">
+          Foto area kerja / layout untuk dilampirkan di SOP.
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-3">
+          <template x-for="(photo, index) in photos" :key="photo.id">
+            <div class="border border-slate-200 rounded-lg p-2 flex flex-col gap-2 bg-slate-50/40">
+              <div class="text-[11px] text-slate-600 flex items-center justify-between">
+                <span>Foto <span x-text="index + 1"></span></span>
+                <button type="button"
+                        @click="removePhoto(index)"
+                        class="text-rose-500 hover:text-rose-600 text-[11px]"
+                        x-show="photos.length > 1">
+                  Hapus
+                </button>
+              </div>
+
+              <input
+                type="file"
+                :name="'photos[' + index + ']'"
+                accept="image/*"
+                @change="handlePhotoChange($event, index)"
+                class="block w-full text-[11px] text-slate-600
+                       file:mr-2 file:py-1 file:px-2 file:rounded-md
+                       file:border-0 file:text-[11px]
+                       file:bg-[#05727d]/10 file:text-[#05727d]
+                       hover:file:bg-[#05727d]/20">
+
+              <input
+                type="text"
+                :name="'photo_desc[' + index + ']'"
+                class="w-full rounded-md border border-slate-200 px-2 py-1 text-[11px]"
+                placeholder="Deskripsi foto (opsional)">
+
+              <div class="mt-1 rounded-md bg-slate-100 flex items-center justify-center overflow-hidden"
+                   x-show="photo.preview">
+                <img :src="photo.preview" alt="" class="max-h-32 object-contain">
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div class="mt-3">
+          <button type="button"
+                  @click="addPhoto()"
+                  class="px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-[11px] text-slate-700 hover:bg-slate-50">
+            + Tambah Foto
+          </button>
+        </div>
+      </div>
+
+      {{-- =========================
+          SECTION: ISI SOP (NARASI)
+      ========================== --}}
+      <div class="bg-white border border-[#05727d]/20 rounded-xl p-4" x-show="showFields.content">
+        <div class="text-xs font-semibold text-[#05727d] mb-3 flex items-center gap-2">
+          <span class="h-2 w-2 rounded-full bg-[#05727d]"></span>
+          Isi SOP (Deskripsi Naratif)
+        </div>
+
+        <textarea name="content" rows="7"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none
+                         focus:ring-[#05727d]/15 focus:border-[#05727d]"
+                  placeholder="Tuliskan isi SOP atau ringkasan langkah-langkahnya...">{{ old('content', $sop->content) }}</textarea>
+        @error('content') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+      </div>
+
+      {{-- BUTTONS --}}
+      <div class="flex items-center justify-between gap-2 pt-1">
+        <div class="text-[11px] text-slate-400">
+          Terakhir update: {{ optional($sop->updated_at)->format('d M Y H:i') }}
+        </div>
+
+        <div class="flex items-center gap-2">
+          <a href="{{ route('sop.show',$sop) }}"
              class="px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50">
             Batal
           </a>
-        @endif
 
-        <button
-          type="submit"
-          class="px-5 py-2 rounded-lg bg-[#05727d] hover:bg-[#05727d]/90 text-white text-xs font-semibold shadow-sm">
-          Simpan Perubahan
-        </button>
+          <button type="submit"
+                  class="px-5 py-2 rounded-lg bg-[#05727d] hover:bg-[#05727d]/90 text-white text-xs font-semibold shadow-sm">
+            Simpan Perubahan
+          </button>
+        </div>
       </div>
-    </div>
 
-  </form>
+    </form>
+  </div>
 </div>
 @endsection

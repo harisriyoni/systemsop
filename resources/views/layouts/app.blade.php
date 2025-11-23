@@ -36,20 +36,18 @@
         ($needAction['sop_pending_qa'] ?? 0) +
         ($needAction['sop_pending_logistik'] ?? 0);
 
-    // FIX badge CS: 1 key aja biar gak 0 terus
+    // badge CS
     $badgeCs = $needAction['cs_pending'] ?? 0;
 
     $user = auth()->user();
 
     // ================= LOGO SIDEBAR =================
-    // default: public/assets/images/dipsol.png
     $logoPath = config('app.company_logo', 'assets/images/dipsol.png'); // relative public path
     $logoFile = public_path($logoPath);
     $hasLogo  = file_exists($logoFile);
     $logoUrl  = asset($logoPath);
 
     // ================= AVATAR USER =================
-    // prioritas: avatar_path (migration baru)
     $photo = null;
     if ($user) {
         if (!empty($user->avatar_path)) {
@@ -64,6 +62,13 @@
     }
 
     $notifCount = $notifCount ?? 0;
+
+    // SOP aktif dari route (ada kalau di show/edit/versions/history)
+    $currentSop = request()->route('sop');
+
+    // URL versions/history (GA USAH NULL, fallback aja ke index)
+    $versionsUrl = $currentSop ? route('sop.versions', $currentSop) : route('sop.index');
+    $historyUrl  = $currentSop ? route('sop.history',  $currentSop) : route('sop.index');
 @endphp
 
 <body class="bg-slate-50 min-h-screen text-slate-800">
@@ -93,8 +98,7 @@
                 <div class="flex items-center gap-3">
                     <div class="h-9 w-9 rounded-xl bg-white/15 grid place-items-center shadow overflow-hidden">
                         @if($hasLogo)
-                            <img src="{{ $logoUrl }}" alt="logo"
-                                 class="h-7 w-7 object-contain">
+                            <img src="{{ $logoUrl }}" alt="logo" class="h-7 w-7 object-contain">
                         @else
                             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -142,7 +146,7 @@
                 <span x-show="!collapsed" x-transition class="font-medium">Dashboard</span>
             </a>
 
-            {{-- PROFILE GROUP (BARU) --}}
+            {{-- PROFILE GROUP --}}
             <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
                 <span>Account</span>
                 <span class="h-px flex-1 bg-slate-200"></span>
@@ -173,13 +177,14 @@
             {{-- SOP Management --}}
             <a href="{{ route('sop.index') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                {{ request()->routeIs('sop.index','sop.show','sop.edit')
+               {{ request()->routeIs('sop.index','sop.show','sop.edit','sop.versions','sop.history')
                     ? 'bg-[#05727d] text-white shadow-sm'
                     : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
                     {{ request()->routeIs('sop.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
                     </svg>
                 </div>
                 <span x-show="!collapsed" x-transition class="font-medium">SOP Management</span>
@@ -189,7 +194,7 @@
             @if($user && $user->isRole(['admin','produksi']))
             <a href="{{ route('sop.create') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                {{ request()->routeIs('sop.create')
+               {{ request()->routeIs('sop.create')
                     ? 'bg-[#05727d] text-white shadow-sm'
                     : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
@@ -206,13 +211,16 @@
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
             <a href="{{ route('sop.approval.index') }}"
                class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                {{ request()->routeIs('sop.approval.*')
+               {{ request()->routeIs('sop.approval.*','sop.approve','sop.reject','sop.submit')
                     ? 'bg-[#05727d] text-white shadow-sm'
                     : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
                 <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('sop.approval.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                    {{ request()->routeIs('sop.approval.*','sop.approve','sop.reject','sop.submit')
+                        ? 'bg-white/15'
+                        : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M9 12l2 2 4-4M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                 </div>
 
@@ -225,6 +233,42 @@
                 </span>
             </a>
             @endif
+
+            {{-- Versions SOP (BUTTON, ALWAYS CLICKABLE) --}}
+            <button type="button"
+                onclick="window.location='{{ $versionsUrl }}'"
+                class="group w-full flex items-center gap-3 px-3 py-2 rounded-xl transition ml-3 text-left
+                {{ request()->routeIs('sop.versions')
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                <div class="w-8 h-8 rounded-lg grid place-items-center
+                    {{ request()->routeIs('sop.versions')
+                        ? 'bg-white/15'
+                        : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                    <svg class="w-4 h-4 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v6H4zM4 14h16v6H4z" />
+                    </svg>
+                </div>
+                <span x-show="!collapsed" x-transition class="text-xs">Versions SOP</span>
+            </button>
+
+            {{-- History SOP (BUTTON, ALWAYS CLICKABLE) --}}
+            <button type="button"
+                onclick="window.location='{{ $historyUrl }}'"
+                class="group w-full flex items-center gap-3 px-3 py-2 rounded-xl transition ml-3 text-left
+                {{ request()->routeIs('sop.history')
+                    ? 'bg-[#05727d] text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                <div class="w-8 h-8 rounded-lg grid place-items-center
+                    {{ request()->routeIs('sop.history')
+                        ? 'bg-white/15'
+                        : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                    <svg class="w-4 h-4 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <span x-show="!collapsed" x-transition class="text-xs">History SOP</span>
+            </button>
 
             {{-- CHECK SHEET GROUP --}}
             <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
@@ -241,7 +285,8 @@
                 <div class="w-9 h-9 rounded-lg grid place-items-center
                     {{ request()->routeIs('check_sheets.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
                     <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h6M9 9h6M9 13h6M9 17h6M5 5h.01M5 9h.01M5 13h.01M5 17h.01" />
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M9 5h6M9 9h6M9 13h6M9 17h6M5 5h.01M5 9h.01M5 13h.01M5 17h.01" />
                     </svg>
                 </div>
                 <span x-show="!collapsed" x-transition class="font-medium">List Form</span>
@@ -408,16 +453,13 @@
             {{-- RIGHT AREA: notif + user --}}
             <div class="flex items-center gap-3">
                 {{-- Notif bell --}}
-                <button
-                    class="relative p-2 rounded-lg hover:bg-slate-100 text-slate-600"
-                    title="Notifikasi">
+                <button class="relative p-2 rounded-lg hover:bg-slate-100 text-slate-600" title="Notifikasi">
                     <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round"
                               d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5" />
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 17a3 3 0 006 0" />
                     </svg>
 
-                    {{-- Badge count --}}
                     @if($notifCount > 0)
                         <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1
                             rounded-full bg-rose-500 text-white text-[10px]
@@ -433,7 +475,6 @@
                         @click="open=!open"
                         @click.outside="open=false"
                         class="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100">
-                        {{-- Avatar --}}
                         @if($photo)
                             <img src="{{ $photo }}" alt="avatar"
                                  class="h-9 w-9 rounded-full object-cover ring-2 ring-[#cde3e5]">
@@ -443,7 +484,6 @@
                             </div>
                         @endif
 
-                        {{-- Name + role --}}
                         <div class="hidden md:block text-left leading-tight">
                             <div class="text-sm font-semibold text-slate-900 max-w-[140px] truncate">
                                 {{ $user->name ?? '-' }}
@@ -458,7 +498,6 @@
                         </svg>
                     </button>
 
-                    {{-- Dropdown menu --}}
                     <div
                         x-show="open"
                         x-transition
@@ -469,7 +508,6 @@
                             <div class="text-xs text-slate-500 truncate">{{ $user->email }}</div>
                         </div>
 
-                        {{-- link profile beneran --}}
                         <a href="{{ route('profile.show') }}" class="block px-4 py-2 text-sm hover:bg-slate-50">
                             Profile
                         </a>

@@ -16,7 +16,6 @@ class SopController extends Controller
     // ==========================
     public function index(Request $request)
     {
-        // default urut terbaru update
         $query = Sop::query()->orderByDesc('updated_at');
 
         if ($request->filled('q')) {
@@ -45,7 +44,6 @@ class SopController extends Controller
         }
 
         $sops = $query->paginate(10)->withQueryString();
-
         return view('sop.index', compact('sops'));
     }
 
@@ -55,94 +53,22 @@ class SopController extends Controller
     public function create()
     {
         $defaultFormSchema = [
-            [
-                'key'       => 'code',
-                'label'     => 'Kode SOP',
-                'type'      => 'text',
-                'required'  => true,
-                'visible'   => true,
-                'is_core'   => true,
-            ],
-            [
-                'key'       => 'title',
-                'label'     => 'Judul SOP',
-                'type'      => 'text',
-                'required'  => true,
-                'visible'   => true,
-                'is_core'   => true,
-            ],
-            [
-                'key'       => 'department',
-                'label'     => 'Departemen',
-                'type'      => 'select',
-                'options'   => ['Produksi', 'QA', 'Logistik'],
-                'required'  => true,
-                'visible'   => true,
-                'is_core'   => true,
-            ],
-            [
-                'key'       => 'product',
-                'label'     => 'Produk',
-                'type'      => 'text',
-                'required'  => false,
-                'visible'   => true,
-                'is_core'   => true,
-            ],
-            [
-                'key'       => 'line',
-                'label'     => 'Line Produksi',
-                'type'      => 'text',
-                'required'  => false,
-                'visible'   => true,
-                'is_core'   => true,
-            ],
-            [
-                'key'       => 'effective_from',
-                'label'     => 'Tanggal Berlaku Dari',
-                'type'      => 'date',
-                'required'  => false,
-                'visible'   => true,
-                'is_core'   => true,
-            ],
-            [
-                'key'       => 'effective_to',
-                'label'     => 'Tanggal Berlaku Sampai',
-                'type'      => 'date',
-                'required'  => false,
-                'visible'   => false, // misal kadang nggak dipakai
-                'is_core'   => true,
-            ],
-            [
-                'key'       => 'is_public',
-                'label'     => 'Tersedia untuk Publik',
-                'type'      => 'checkbox',
-                'required'  => false,
-                'visible'   => true,
-                'is_core'   => true,
-            ],
-            [
-                'key'       => 'pin',
-                'label'     => 'PIN Akses (Opsional)',
-                'type'      => 'text',
-                'required'  => false,
-                'visible'   => true,
-                'is_core'   => true,
-            ],
+            ['key'=>'code','label'=>'Kode SOP','type'=>'text','required'=>true,'visible'=>true,'is_core'=>true],
+            ['key'=>'title','label'=>'Judul SOP','type'=>'text','required'=>true,'visible'=>true,'is_core'=>true],
+            ['key'=>'department','label'=>'Departemen','type'=>'select','options'=>['Produksi','QA','Logistik'],'required'=>true,'visible'=>true,'is_core'=>true],
+            ['key'=>'product','label'=>'Produk','type'=>'text','required'=>false,'visible'=>true,'is_core'=>true],
+            ['key'=>'line','label'=>'Line Produksi','type'=>'text','required'=>false,'visible'=>true,'is_core'=>true],
+            ['key'=>'effective_from','label'=>'Tanggal Berlaku Dari','type'=>'date','required'=>false,'visible'=>true,'is_core'=>true],
+            ['key'=>'effective_to','label'=>'Tanggal Berlaku Sampai','type'=>'date','required'=>false,'visible'=>false,'is_core'=>true],
+            ['key'=>'is_public','label'=>'Tersedia untuk Publik','type'=>'checkbox','required'=>false,'visible'=>true,'is_core'=>true],
+            ['key'=>'pin','label'=>'PIN Akses (Opsional)','type'=>'text','required'=>false,'visible'=>true,'is_core'=>true],
 
-            // contoh field custom → masuk ke meta
-            [
-                'key'       => 'meta.mesin',
-                'label'     => 'Nama Mesin',
-                'type'      => 'text',
-                'required'  => false,
-                'visible'   => false,
-                'is_core'   => false,
-            ],
+            // contoh field custom → masuk meta
+            ['key'=>'meta.mesin','label'=>'Nama Mesin','type'=>'text','required'=>false,'visible'=>false,'is_core'=>false],
         ];
 
-        $defaultBuilderSchema = [
-            // (isi default kosong atau contoh minimum)
-        ];
+        $defaultBuilderSchema = [];
+
         return view('sop.create', [
             'formSchema'    => $defaultFormSchema,
             'builderSchema' => $defaultBuilderSchema,
@@ -151,76 +77,51 @@ class SopController extends Controller
 
     public function store(Request $request)
     {
-        // ============================
-        // 1. Ambil JSON dari builder
-        // ============================
+        // 1) JSON builder + extra
         $builderSchemaJson = $request->input('builder_schema');
         $extraFieldsJson   = $request->input('extra_fields');
 
         $builderSchema = $builderSchemaJson ? json_decode($builderSchemaJson, true) : [];
-        if (!is_array($builderSchema)) {
-            $builderSchema = [];
-        }
+        if (!is_array($builderSchema)) $builderSchema = [];
 
         $extraFields = $extraFieldsJson ? json_decode($extraFieldsJson, true) : [];
-        if (!is_array($extraFields)) {
-            $extraFields = [];
-        }
+        if (!is_array($extraFields)) $extraFields = [];
 
-        // ============================
-        // 2. Validasi "core fields"
-        // ============================
-        $validated = $request->validate([
-            'code'           => ['required', 'string', 'max:50', 'unique:sops,code'],
-            'title'          => ['required', 'string', 'max:255'],
-            'department'     => ['required', 'string', 'max:100'],
-            'product'        => ['nullable', 'string', 'max:100'],
-            'line'           => ['nullable', 'string', 'max:100'],
-            'content'        => ['nullable', 'string'],
-            'effective_from' => ['nullable', 'date'],
-            'effective_to'   => ['nullable', 'date', 'after_or_equal:effective_from'],
-            'is_public'      => ['nullable', 'boolean'],
-            'pin'            => ['nullable', 'string', 'max:20'],
+        // 2) validasi core
+        $request->validate([
+            'code'           => ['required','string','max:50','unique:sops,code'],
+            'title'          => ['required','string','max:255'],
+            'department'     => ['required','string','max:100'],
+            'product'        => ['nullable','string','max:100'],
+            'line'           => ['nullable','string','max:100'],
+            'content'        => ['nullable','string'],
+            'effective_from' => ['nullable','date'],
+            'effective_to'   => ['nullable','date','after_or_equal:effective_from'],
+            'is_public'      => ['nullable','boolean'],
+            'pin'            => ['nullable','string','max:20'],
 
-            'photos'         => ['nullable', 'array', 'max:10'],
-            'photos.*'       => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'photos'         => ['nullable','array','max:10'],
+            'photos.*'       => ['image','mimes:jpg,jpeg,png,webp','max:4096'],
+            'photo_desc'     => ['nullable','array'],
+            'photo_desc.*'   => ['nullable','string','max:255'],
         ]);
 
-        // Hanya field yang benar-benar ada di kolom DB
         $coreFields = [
-            'code',
-            'title',
-            'department',
-            'product',
-            'line',
-            'content',
-            'effective_from',
-            'effective_to',
-            'is_public',
-            'pin',
+            'code','title','department','product','line',
+            'content','effective_from','effective_to','is_public','pin',
         ];
-
         $data = $request->only($coreFields);
-
-        // Normalisasi boolean
         $data['is_public'] = $request->boolean('is_public');
 
-        // ============================
-        // 3. Normalisasi extra_fields → disimpan di meta
-        // ============================
+        // 3) normalisasi extra_fields → meta
         $normalizedExtra = [];
         foreach ($extraFields as $row) {
-            if (!is_array($row)) {
-                continue;
-            }
+            if (!is_array($row)) continue;
 
-            $label = isset($row['label']) ? trim((string) $row['label']) : '';
-            $value = isset($row['value']) ? trim((string) $row['value']) : '';
+            $label = trim((string)($row['label'] ?? ''));
+            $value = trim((string)($row['value'] ?? ''));
 
-            // kalau dua-duanya kosong, skip
-            if ($label === '' && $value === '') {
-                continue;
-            }
+            if ($label === '' && $value === '') continue;
 
             $normalizedExtra[] = [
                 'label' => $label !== '' ? $label : '-',
@@ -230,49 +131,30 @@ class SopController extends Controller
 
         $meta = [
             'extra_fields'   => $normalizedExtra,
-            // simpan juga builder_schema di meta supaya gampang dipakai di tempat lain
             'builder_schema' => $builderSchema,
+            // tempat history sederhana kalau mau push manual
+            'logs'           => [],
         ];
 
-        // ============================
-        // 4. Upload foto
-        // ============================
-        $photos = [];
-        if ($request->hasFile('photos')) {
-            foreach ($request->file('photos') as $idx => $file) {
-                if (!$file) {
-                    continue;
-                }
+        // 4) upload foto
+        $photos = $this->handlePhotosUpload($request);
 
-                $path = $file->store('sops', 'public');
-
-                $photos[] = [
-                    'path' => $path,
-                    'desc' => $request->input("photo_desc.$idx"),
-                ];
-            }
-        }
-
-        // ============================
-        // 5. Simpan SOP
-        // ============================
+        // 5) simpan SOP v1
         $sop = Sop::create([
             ...$data,
-            'photos'         => $photos,
-            // form_schema sudah nggak dipakai untuk builder baru → simpan kosong saja
+            'photos'         => count($photos) ? $photos : null,
             'form_schema'    => [],
             'builder_schema' => $builderSchema,
             'meta'           => $meta,
             'created_by'     => $request->user()->id,
+            'status'         => 'draft',
+            'version'        => 1,
         ]);
-
-        $version = $sop->version ?? 1;
 
         return redirect()
             ->route('sop.show', $sop)
-            ->with('success', 'SOP berhasil dibuat (v' . $version . ').');
+            ->with('success', 'SOP berhasil dibuat (v' . ($sop->version ?? 1) . ').');
     }
-
 
     // ==========================
     // EDIT / UPDATE SOP
@@ -283,65 +165,52 @@ class SopController extends Controller
         return view('sop.edit', compact('sop'));
     }
 
-    /**
-     * Update SOP:
-     * - Jika SOP masih draft / waiting_approval → update record yang sama.
-     * - Jika SOP sudah approved → buat RECORD BARU versi+1 status draft.
-     */
     public function update(Request $request, Sop $sop)
     {
         $this->authorizeManage();
 
-        // ✅ kalau SOP sudah approved, jangan overwrite
-        if ($sop->status === 'approved') {
-            $data = $this->validatePayload($request);
+        // decode builder + extra dulu
+        $builderSchemaJson = $request->input('builder_schema');
+        $extraFieldsJson   = $request->input('extra_fields');
 
-            // ambil versi terakhir dari code ini
-            $latest = Sop::where('code', $data['code'])
-                ->orderByDesc('version')
-                ->first();
-            $nextVersion = $latest ? ($latest->version + 1) : (($sop->version ?? 1) + 1);
+        $builderSchema = $builderSchemaJson ? json_decode($builderSchemaJson, true) : [];
+        if (!is_array($builderSchema)) $builderSchema = [];
 
-            // siapkan data new record
-            $newData = $data;
-            $newData['version'] = $nextVersion;
-            $newData['status']  = 'draft';
-            $newData['created_by'] = auth()->id();
+        $extraFields = $extraFieldsJson ? json_decode($extraFieldsJson, true) : [];
+        if (!is_array($extraFields)) $extraFields = [];
 
-            $newData['is_approved_produksi'] = false;
-            $newData['is_approved_qa']       = false;
-            $newData['is_approved_logistik'] = false;
+        // validasi payload core
+        $data = $this->validatePayload($request, $sop);
+        $data['is_public'] = $request->boolean('is_public');
 
-            $newData['is_public'] = $request->boolean('is_public');
+        // normalisasi extra_fields → meta
+        $normalizedExtra = [];
+        foreach ($extraFields as $row) {
+            if (!is_array($row)) continue;
 
-            // FOTO: gabung foto lama + foto baru, boleh remove
-            $existing = is_array($sop->photos) ? $sop->photos : (json_decode($sop->photos, true) ?: []);
-            $removedPaths = $request->input('remove_photos', []);
+            $label = trim((string)($row['label'] ?? ''));
+            $value = trim((string)($row['value'] ?? ''));
 
-            if (is_array($removedPaths) && count($removedPaths)) {
-                $existing = array_values(array_filter($existing, function ($p) use ($removedPaths) {
-                    return !in_array($p['path'] ?? null, $removedPaths);
-                }));
-                foreach ($removedPaths as $rp) {
-                    if ($rp) Storage::disk('public')->delete($rp);
-                }
-            }
+            if ($label === '' && $value === '') continue;
 
-            $newPhotos = $this->handlePhotosUpload($request);
-            $merged = array_merge($existing, $newPhotos);
-            $newData['photos'] = count($merged) ? $merged : null;
-
-            $newSop = Sop::create($newData);
-
-            return redirect()
-                ->route('sop.edit', $newSop)
-                ->with('success', 'Revisi dibuat sebagai SOP versi v' . $nextVersion . '. Silakan submit approval ulang.');
+            $normalizedExtra[] = [
+                'label' => $label !== '' ? $label : '-',
+                'value' => $value !== '' ? $value : '-',
+            ];
         }
 
-        // ✅ SOP belum approved → update biasa
-        $data = $this->validatePayload($request, $sop);
+        $meta = is_array($sop->meta) ? $sop->meta : (json_decode($sop->meta, true) ?: []);
+        $meta['extra_fields']   = $normalizedExtra;
+        $meta['builder_schema'] = $builderSchema;
 
-        $data['is_public'] = $request->boolean('is_public');
+        // append log kecil (optional)
+        $meta['logs'] = is_array($meta['logs'] ?? null) ? $meta['logs'] : [];
+        $meta['logs'][] = [
+            'at'      => now()->toDateTimeString(),
+            'by'      => auth()->user()->name ?? 'system',
+            'action'  => ($sop->status === 'approved') ? 'create_revision' : 'update',
+            'version' => $sop->version ?? 1,
+        ];
 
         // FOTO: merge foto lama + foto baru, boleh remove
         $existing = is_array($sop->photos) ? $sop->photos : (json_decode($sop->photos, true) ?: []);
@@ -358,7 +227,41 @@ class SopController extends Controller
 
         $newPhotos = $this->handlePhotosUpload($request);
         $mergedPhotos = array_merge($existing, $newPhotos);
-        $data['photos'] = count($mergedPhotos) ? $mergedPhotos : null;
+
+        // ✅ kalau SOP sudah approved → buat versi baru
+        if ($sop->status === 'approved') {
+            $latest = Sop::where('code', $data['code'])
+                ->orderByDesc('version')
+                ->first();
+
+            $nextVersion = $latest ? ($latest->version + 1) : (($sop->version ?? 1) + 1);
+
+            $newData = [
+                ...$data,
+                'version'               => $nextVersion,
+                'status'                => 'draft',
+                'created_by'            => auth()->id(),
+                'is_approved_produksi'  => false,
+                'is_approved_qa'        => false,
+                'is_approved_logistik'  => false,
+                'photos'                => count($mergedPhotos) ? $mergedPhotos : null,
+                'builder_schema'        => $builderSchema,
+                'form_schema'           => [],
+                'meta'                  => $meta,
+            ];
+
+            $newSop = Sop::create($newData);
+
+            return redirect()
+                ->route('sop.edit', $newSop)
+                ->with('success', 'Revisi dibuat sebagai SOP versi v' . $nextVersion . '. Silakan submit approval ulang.');
+        }
+
+        // ✅ SOP belum approved → update biasa
+        $data['photos']         = count($mergedPhotos) ? $mergedPhotos : null;
+        $data['builder_schema'] = $builderSchema;
+        $data['form_schema']    = [];
+        $data['meta']           = $meta;
 
         $sop->update($data);
 
@@ -379,7 +282,6 @@ class SopController extends Controller
         }
 
         $sop->delete();
-
         return redirect()->route('sop.index')->with('success', 'SOP berhasil dihapus.');
     }
 
@@ -398,7 +300,6 @@ class SopController extends Controller
         $sop->is_approved_produksi = false;
         $sop->is_approved_qa       = false;
         $sop->is_approved_logistik = false;
-
         $sop->save();
 
         return back()->with('success', 'SOP berhasil diajukan untuk approval.');
@@ -432,7 +333,6 @@ class SopController extends Controller
         }
 
         $sops = $query->paginate(10)->withQueryString();
-
         return view('sop.approval', compact('sops', 'userRole'));
     }
 
@@ -475,16 +375,9 @@ class SopController extends Controller
         }
 
         $sop->save();
-
         return back()->with('success', 'Persetujuan berhasil disimpan.');
     }
 
-    /**
-     * NOTE:
-     * tabel kamu belum punya status "rejected" di enum.
-     * Jadi reject kita kembalikan ke DRAFT + reset flag.
-     * Kalau kamu mau status rejected beneran, tinggal tambah enum di migration.
-     */
     public function reject(Request $request, Sop $sop)
     {
         $userRole = auth()->user()->role;
@@ -501,24 +394,16 @@ class SopController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
-        // balik draft
         $sop->status = 'draft';
         $sop->is_approved_produksi = false;
         $sop->is_approved_qa       = false;
         $sop->is_approved_logistik = false;
 
-        if (Schema::hasColumn('sops', 'rejected_reason')) {
-            $sop->rejected_reason = $request->reason;
-        }
-        if (Schema::hasColumn('sops', 'rejected_by')) {
-            $sop->rejected_by = auth()->id();
-        }
-        if (Schema::hasColumn('sops', 'rejected_at')) {
-            $sop->rejected_at = now();
-        }
+        if (Schema::hasColumn('sops', 'rejected_reason')) $sop->rejected_reason = $request->reason;
+        if (Schema::hasColumn('sops', 'rejected_by'))     $sop->rejected_by = auth()->id();
+        if (Schema::hasColumn('sops', 'rejected_at'))     $sop->rejected_at = now();
 
         $sop->save();
-
         return back()->with('success', 'SOP ditolak dan dikembalikan ke Draft.');
     }
 
@@ -539,9 +424,7 @@ class SopController extends Controller
     // ==========================
     public function publicShow(Request $request, Sop $sop)
     {
-        if (!$sop->is_public || $sop->status !== 'approved') {
-            abort(404);
-        }
+        if (!$sop->is_public || $sop->status !== 'approved') abort(404);
 
         $qrUrl = route('sop.public.show', $sop);
 
@@ -556,37 +439,24 @@ class SopController extends Controller
 
     public function publicUnlock(Request $request, Sop $sop)
     {
-        if (!$sop->is_public || $sop->status !== 'approved') {
-            abort(404);
-        }
+        if (!$sop->is_public || $sop->status !== 'approved') abort(404);
+        if (!$sop->pin) return redirect()->route('sop.public.show', $sop);
 
-        if (!$sop->pin) {
-            return redirect()->route('sop.public.show', $sop);
-        }
-
-        $request->validate([
-            'pin' => ['required', 'string', 'max:20'],
-        ]);
+        $request->validate(['pin' => ['required','string','max:20']]);
 
         if ($request->pin !== $sop->pin) {
-            return back()->with('error', 'PIN salah.');
+            return back()->with('error','PIN salah.');
         }
 
         $sessionKey = "sop_unlocked_{$sop->id}";
         $request->session()->put($sessionKey, true);
-
         return redirect()->route('sop.public.show', $sop);
     }
 
     public function publicAck(Request $request, Sop $sop)
     {
-        if (!$sop->is_public || $sop->status !== 'approved') {
-            abort(404);
-        }
-
-        // optional: simpan log ack kalau ada tabelnya
-
-        return back()->with('success', 'Terima kasih, sudah mengkonfirmasi SOP.');
+        if (!$sop->is_public || $sop->status !== 'approved') abort(404);
+        return back()->with('success','Terima kasih, sudah mengkonfirmasi SOP.');
     }
 
     // ==========================
@@ -608,20 +478,17 @@ class SopController extends Controller
             $qrPath   = 'qr/' . $fileName;
 
             $png = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')
-                ->size(600)
-                ->margin(2)
-                ->generate($url);
+                ->size(600)->margin(2)->generate($url);
 
             Storage::disk('public')->put($qrPath, $png);
             $qrUrl = Storage::disk('public')->url($qrPath);
         }
 
-        if (Schema::hasColumn('sops', 'qr_path')) $sop->qr_path = $qrPath;
-        if (Schema::hasColumn('sops', 'qr_url'))  $sop->qr_url  = $qrUrl;
+        if (Schema::hasColumn('sops','qr_path')) $sop->qr_path = $qrPath;
+        if (Schema::hasColumn('sops','qr_url'))  $sop->qr_url  = $qrUrl;
 
         $sop->save();
-
-        return back()->with('success', 'QR SOP berhasil dibuat.');
+        return back()->with('success','QR SOP berhasil dibuat.');
     }
 
     // ==========================
@@ -635,39 +502,94 @@ class SopController extends Controller
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sop.pdf', [
                 'sop' => $sop,
                 'generatedAt' => now(),
-            ])->setPaper('a4', 'portrait');
+            ])->setPaper('a4','portrait');
 
-            $filename = ($sop->code ?? 'sop')
-                . '_v' . ($sop->version ?? 1)
-                . '.pdf';
-
+            $filename = ($sop->code ?? 'sop') . '_v' . ($sop->version ?? 1) . '.pdf';
             return $pdf->download($filename);
         }
 
-        return redirect()->route('sop.show', $sop)
-            ->with('error', 'Export PDF belum aktif (Dompdf belum terpasang).');
+        return redirect()->route('sop.show',$sop)
+            ->with('error','Export PDF belum aktif (Dompdf belum terpasang).');
     }
 
     // ==========================
-    // VERSIONS / HISTORY
+    // VERSIONS / HISTORY (ALL)
     // ==========================
+    // route: GET /sop/versions
+    public function versionsIndex(Request $request)
+    {
+        $this->authorizeView();
+
+        // ambil latest SOP per code
+        $sub = Sop::query()
+            ->selectRaw('code, MAX(version) as max_version')
+            ->groupBy('code');
+
+        $query = Sop::query()
+            ->joinSub($sub, 'mx', function ($join) {
+                $join->on('sops.code', '=', 'mx.code')
+                     ->on('sops.version', '=', 'mx.max_version');
+            })
+            ->select('sops.*')
+            ->orderByDesc('sops.updated_at');
+
+        if ($request->filled('q')) {
+            $keyword = trim($request->q);
+            $query->where(function ($subq) use ($keyword) {
+                $subq->where('sops.code', 'like', "%{$keyword}%")
+                     ->orWhere('sops.title', 'like', "%{$keyword}%");
+            });
+        }
+
+        $latestSops = $query->paginate(15)->withQueryString();
+
+        return view('sop.versions_index', compact('latestSops'));
+    }
+
+    // route: GET /sop/history
+    public function historyIndex(Request $request)
+    {
+        $this->authorizeView();
+
+        $query = Sop::orderByDesc('updated_at');
+
+        if ($request->filled('q')) {
+            $keyword = trim($request->q);
+            $query->where(function ($subq) use ($keyword) {
+                $subq->where('code', 'like', "%{$keyword}%")
+                     ->orWhere('title', 'like', "%{$keyword}%");
+            });
+        }
+
+        $items = $query->paginate(20)->withQueryString();
+        return view('sop.history_index', compact('items'));
+    }
+
+    // ==========================
+    // VERSIONS / HISTORY (PER SOP)
+    // ==========================
+    // route: GET /sop/{sop}/versions
     public function versions(Sop $sop)
     {
-        $this->authorizeApprover();
+        $this->authorizeView();
 
         $versions = Sop::where('code', $sop->code)
             ->orderByDesc('version')
             ->get();
 
-        return view('sop.versions', compact('sop', 'versions'));
+        return view('sop.versions', compact('sop','versions'));
     }
 
+    // route: GET /sop/{sop}/history
     public function history(Sop $sop)
     {
-        $this->authorizeApprover();
+        $this->authorizeView();
 
-        $logs = []; // nanti kalau ada sop_logs tinggal fetch
-        return view('sop.history', compact('sop', 'logs'));
+        // fallback: pakai meta.logs kalau belum ada table sop_logs
+        $meta = is_array($sop->meta) ? $sop->meta : (json_decode($sop->meta, true) ?: []);
+        $logs = $meta['logs'] ?? [];
+
+        return view('sop.history', compact('sop','logs'));
     }
 
     // ==========================
@@ -675,55 +597,54 @@ class SopController extends Controller
     // ==========================
     private function validatePayload(Request $request, ?Sop $sop = null)
     {
-        // karena unique gabungan code+version ditangani DB,
-        // code TIDAK unique tunggal lagi.
         $rules = [
-            'code'           => ['required', 'string', 'max:50'],
-            'title'          => ['required', 'string', 'max:255'],
-            'department'     => ['required', 'string', 'max:100'],
-            'product'        => ['nullable', 'string', 'max:100'],
-            'line'           => ['nullable', 'string', 'max:100'],
-            'content'        => ['nullable', 'string'],
-            'effective_from' => ['nullable', 'date'],
-            'effective_to'   => ['nullable', 'date', 'after_or_equal:effective_from'],
+            'code'           => ['required','string','max:50'],
+            'title'          => ['required','string','max:255'],
+            'department'     => ['required','string','max:100'],
+            'product'        => ['nullable','string','max:100'],
+            'line'           => ['nullable','string','max:100'],
+            'content'        => ['nullable','string'],
+            'effective_from' => ['nullable','date'],
+            'effective_to'   => ['nullable','date','after_or_equal:effective_from'],
 
-            'photos'         => ['nullable', 'array', 'max:10'],
-            'photos.*'       => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-            'photo_desc'     => ['nullable', 'array'],
-            'photo_desc.*'   => ['nullable', 'string', 'max:255'],
+            'photos'         => ['nullable','array','max:10'],
+            'photos.*'       => ['image','mimes:jpg,jpeg,png,webp','max:4096'],
+            'photo_desc'     => ['nullable','array'],
+            'photo_desc.*'   => ['nullable','string','max:255'],
 
-            'builder_schema' => ['nullable', 'string'],
+            'builder_schema' => ['nullable','string'],
+            'extra_fields'   => ['nullable','string'],
 
-            'pin'            => ['nullable', 'string', 'max:20'],
-            'is_public'      => ['nullable', 'boolean'],
+            'pin'            => ['nullable','string','max:20'],
+            'is_public'      => ['nullable','boolean'],
         ];
 
         // kalau update SOP belum approved (same record),
         // cegah bentrok jika user ubah CODE tapi versi sama.
         if ($sop && $sop->status !== 'approved') {
             $rules['code'] = [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('sops', 'code')
-                    ->where(fn($q) => $q->where('version', $sop->version))
+                'required','string','max:50',
+                Rule::unique('sops','code')
+                    ->where(fn($q) => $q->where('version',$sop->version))
                     ->ignore($sop->id),
             ];
         }
 
-        return $request->validate($rules, [
+        $validated = $request->validate($rules, [
             'effective_to.after_or_equal' => 'Tanggal berlaku sampai harus setelah/sama dengan tanggal berlaku mulai.',
             'photos.max' => 'Maksimal 10 foto per SOP.',
             'photos.*.image' => 'File foto harus berupa gambar.',
             'photos.*.max' => 'Ukuran foto maksimal 4MB.',
         ]);
-        // 🔥 decode builder_schema JSON → array
+
+        // decode builder_schema JSON → array
         if (!empty($validated['builder_schema'] ?? null)) {
             $decoded = json_decode($validated['builder_schema'], true);
             $validated['builder_schema'] = is_array($decoded) ? $decoded : null;
         } else {
             $validated['builder_schema'] = null;
         }
+
         return $validated;
     }
 
@@ -750,15 +671,23 @@ class SopController extends Controller
 
     private function authorizeManage()
     {
-        if (!auth()->user()->isRole(['admin', 'produksi'])) {
-            abort(403, 'Anda tidak punya akses mengelola SOP.');
+        if (!auth()->user()->isRole(['admin','produksi'])) {
+            abort(403,'Anda tidak punya akses mengelola SOP.');
+        }
+    }
+
+    // view biasa (auth doang)
+    private function authorizeView()
+    {
+        if (!auth()->check()) {
+            abort(403,'Anda tidak punya akses.');
         }
     }
 
     private function authorizeApprover()
     {
-        if (!auth()->user()->isRole(['admin', 'produksi', 'qa', 'logistik'])) {
-            abort(403, 'Anda tidak punya akses.');
+        if (!auth()->user()->isRole(['admin','produksi','qa','logistik'])) {
+            abort(403,'Anda tidak punya akses.');
         }
     }
 

@@ -30,14 +30,10 @@ Route::post('/logout', [AuthController::class, 'logout'])
 // =========================
 // SOP PUBLIC (QR TANPA LOGIN)
 // =========================
-// NOTE:
-// - publicShow()    => tampil SOP publik
-// - publicUnlock()  => cek PIN lalu set session unlock
-// - publicAck()     => operator klik "Saya sudah baca" (opsional)
 Route::prefix('public/sop')->name('sop.public.')->group(function () {
     Route::get('/{sop}', [SopController::class, 'publicShow'])->name('show');
     Route::post('/{sop}/unlock', [SopController::class, 'publicUnlock'])->name('unlock');
-    Route::post('/{sop}/ack', [SopController::class, 'publicAck'])->name('ack'); // opsional
+    Route::post('/{sop}/ack', [SopController::class, 'publicAck'])->name('ack');
 });
 
 
@@ -49,33 +45,20 @@ Route::middleware('auth')->group(function () {
     // DASHBOARD
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-
     // =========================
     // PROFILE (SELF SERVICE)
     // =========================
     Route::prefix('profile')->name('profile.')->group(function () {
+        Route::get('/', [ProfileController::class, 'show'])->name('show');
+        Route::get('/edit', [ProfileController::class, 'edit'])->name('edit');
+        Route::patch('/', [ProfileController::class, 'update'])->name('update');
 
-        // lihat profile sendiri
-        Route::get('/', [ProfileController::class, 'show'])
-            ->name('show');
-
-        // form edit profile
-        Route::get('/edit', [ProfileController::class, 'edit'])
-            ->name('edit');
-
-        // update data profile (nama, phone, dept, dll)
-        Route::patch('/', [ProfileController::class, 'update'])
-            ->name('update');
-
-        // ganti password sendiri
         Route::patch('/password', [ProfileController::class, 'updatePassword'])
             ->name('password.update');
 
-        // upload / ganti avatar
         Route::post('/avatar', [ProfileController::class, 'updateAvatar'])
             ->name('avatar.update');
 
-        // hapus avatar (balik default)
         Route::delete('/avatar', [ProfileController::class, 'deleteAvatar'])
             ->name('avatar.delete');
     });
@@ -98,6 +81,26 @@ Route::middleware('auth')->group(function () {
             ->name('store')
             ->middleware('role:admin,produksi');
 
+        // approval list (approver view)
+        Route::get('/approval', [SopController::class, 'approvalList'])
+            ->name('approval.index')
+            ->middleware('role:admin,produksi,qa,logistik');
+
+        /**
+         * =========================
+         * VERSIONS & HISTORY (ALL)
+         * Bisa diakses dari sidebar kapan pun
+         * WAJIB taruh sebelum /{sop}
+         * =========================
+         */
+        Route::get('/versions', [SopController::class, 'versionsIndex'])
+            ->name('versions.index')
+            ->middleware('role:admin,produksi,qa,logistik');
+
+        Route::get('/history', [SopController::class, 'historyIndex'])
+            ->name('history.index')
+            ->middleware('role:admin,produksi,qa,logistik');
+
         // edit / revise SOP
         Route::get('/{sop}/edit', [SopController::class, 'edit'])
             ->name('edit')
@@ -116,11 +119,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/{sop}/submit', [SopController::class, 'submitApproval'])
             ->name('submit')
             ->middleware('role:admin,produksi');
-
-        // approval list (approver view)
-        Route::get('/approval', [SopController::class, 'approvalList'])
-            ->name('approval.index')
-            ->middleware('role:admin,produksi,qa,logistik');
 
         // approve / reject SOP
         Route::post('/{sop}/approve', [SopController::class, 'approve'])
@@ -141,7 +139,7 @@ Route::middleware('auth')->group(function () {
             ->name('download')
             ->middleware('role:admin,produksi,qa,logistik');
 
-        // versions/history/audit trail (opsional)
+        // versions/history per SOP (detail)
         Route::get('/{sop}/versions', [SopController::class, 'versions'])
             ->name('versions')
             ->middleware('role:admin,produksi,qa,logistik');
@@ -161,10 +159,8 @@ Route::middleware('auth')->group(function () {
     // =========================
     Route::prefix('check-sheets')->name('check_sheets.')->group(function () {
 
-        // list form
         Route::get('/', [CheckSheetController::class, 'index'])->name('index');
 
-        // create form
         Route::get('/create', [CheckSheetController::class, 'create'])
             ->name('create')
             ->middleware('role:admin,produksi,qa,logistik');
@@ -173,7 +169,6 @@ Route::middleware('auth')->group(function () {
             ->name('store')
             ->middleware('role:admin,produksi,qa,logistik');
 
-        // edit form (revise)
         Route::get('/{checkSheet}/edit', [CheckSheetController::class, 'edit'])
             ->name('edit')
             ->middleware('role:admin,produksi,qa,logistik');
@@ -182,12 +177,10 @@ Route::middleware('auth')->group(function () {
             ->name('update')
             ->middleware('role:admin,produksi,qa,logistik');
 
-        // delete form (optional)
         Route::delete('/{checkSheet}', [CheckSheetController::class, 'destroy'])
             ->name('destroy')
             ->middleware('role:admin');
 
-        // publish / unpublish form
         Route::post('/{checkSheet}/publish', [CheckSheetController::class, 'publish'])
             ->name('publish')
             ->middleware('role:admin,produksi,qa,logistik');
@@ -196,12 +189,10 @@ Route::middleware('auth')->group(function () {
             ->name('unpublish')
             ->middleware('role:admin,produksi,qa,logistik');
 
-        // generate QR form
         Route::post('/{checkSheet}/qr', [CheckSheetController::class, 'generateQr'])
             ->name('qr')
             ->middleware('role:admin,produksi,qa,logistik');
 
-        // Operator isi via QR
         Route::get('/{checkSheet}/fill', [CheckSheetController::class, 'fill'])
             ->name('fill')
             ->middleware('role:admin,operator,produksi,qa,logistik');
@@ -210,17 +201,14 @@ Route::middleware('auth')->group(function () {
             ->name('submit')
             ->middleware('role:admin,operator,produksi,qa,logistik');
 
-        // List submissions
         Route::get('/submissions', [CheckSheetController::class, 'submissions'])
             ->name('submissions')
             ->middleware('role:admin,produksi,qa,logistik');
 
-        // Detail submission (optional)
         Route::get('/submissions/{submission}', [CheckSheetController::class, 'showSubmission'])
             ->name('submissions.show')
             ->middleware('role:admin,produksi,qa,logistik');
 
-        // Approval QA / Logistik
         Route::match(['post', 'patch'], '/submissions/{submission}/status', [CheckSheetController::class, 'updateStatus'])
             ->name('submissions.status')
             ->middleware('role:admin,qa,logistik');
@@ -238,7 +226,11 @@ Route::middleware('auth')->group(function () {
     // =========================
     // REPORTS / EXPORT
     // =========================
-    Route::prefix('reports')->name('reports.')->middleware('role:admin,produksi,qa,logistik')->group(function () {
+    Route::prefix('reports')
+        ->name('reports.')
+        ->middleware('role:admin,produksi,qa,logistik')
+        ->group(function () {
+
         Route::get('/', [ReportController::class, 'index'])->name('index');
 
         Route::get('/submissions/export', [ReportController::class, 'exportSubmissionsCsv'])
