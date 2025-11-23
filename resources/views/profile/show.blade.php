@@ -5,34 +5,39 @@
 @section('content')
 @php
   $user = $user ?? auth()->user();
-/**
-   * FIX PHOTO LOGIC:
-   * - kalau avatar_path sudah URL (http/https) -> pakai langsung
-   * - kalau avatar_path path storage -> normalisasi lalu buat URL beda untuk local/production
-   * - fallback ke photo_url (kalau masih ada)
-   */
-  $photo = null;
+
+
+  /**
+     * FIX PHOTO LOGIC:
+     * - kalau avatar_path sudah URL (http/https) -> pakai langsung
+     * - kalau avatar_path path storage -> bersihkan dan bentuk URL:
+     *   APP_URL/storage/app/public/avatars/xxx.png
+     * - fallback ke photo_url kalau ada
+     */
+     $photo = null;
 
     if ($user && $user->avatar_path) {
         $p = $user->avatar_path;
 
-        // Jika URL full
-        if (Str::startsWith($p, ['http://', 'https://', '//'])) {
+        // Jika avatar_path sudah URL penuh → pakai saja
+        if (Str::startsWith($p, ['http://','https://','//'])) {
             $photo = $p;
 
         } else {
-            // BERSIHKAN prefix salah
+            // Bersihkan path yang salah
             $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($p, '/'));
-            // clean hasilnya: avatars/abc.png
 
-            // BENTUK URL SESUAI PERMINTAANMU
-            $photo = rtrim(env('APP_URL'), '/') . '/storage/app/public/' . $clean;
+            // *** TANPA .env — langsung build full URL sesuai production ***
+            $host = request()->getSchemeAndHttpHost(); 
+            // contoh otomatis: https://darkred-giraffe-249836.hostingersite.com
+
+            $photo = $host . '/storage/app/public/' . $clean;
         }
     }
 
-  // kalau di model ada relation creator/updater
-  $creatorName = optional($user->creator)->name ?? ($user->created_by ?? '-');
-  $updaterName = optional($user->updater)->name ?? ($user->updated_by ?? '-');
+    // kalau di model ada relation creator/updater
+    $creatorName = optional($user->creator)->name ?? ($user->created_by ?? '-');
+    $updaterName = optional($user->updater)->name ?? ($user->updated_by ?? '-');
 @endphp
 
 <div class="max-w-4xl mx-auto space-y-5">
