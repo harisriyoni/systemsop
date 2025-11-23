@@ -13,51 +13,22 @@
    */
   $photo = null;
 
-  if ($user) {
-      if (!empty($user->avatar_path)) {
-          $p = $user->avatar_path;
+    if ($user && $user->avatar_path) {
+        $p = $user->avatar_path;
 
-          // Kalau sudah full URL, pakai apa adanya
-          $isHttp = \Illuminate\Support\Str::startsWith($p, ['http://', 'https://', '//']);
-          if ($isHttp) {
-              $photo = $p;
-          } else {
-              // BERSIHKAN prefix yang sering bikin kacau:
-              // bisa jadi:
-              // - "avatars/abc.png"
-              // - "storage/avatars/abc.png"
-              // - "storage/app/public/avatars/abc.png"
-              $cleanPath = preg_replace('#^storage/(app/public/)?#', '', ltrim($p, '/'));
-              // sekarang idealnya: "avatars/abc.png"
+        // Jika URL full
+        if (Str::startsWith($p, ['http://', 'https://', '//'])) {
+            $photo = $p;
 
-              if (app()->environment('local')) {
-                  // Standar Laravel (public/storage -> storage/app/public)
-                  // → URL: /storage/avatars/abc.png
-                  $publicPath = 'storage/' . $cleanPath;
-              } else {
-                  // Hosting kamu yang butuh /storage/app/public/...
-                  // → URL: /storage/app/public/avatars/abc.png
-                  $publicPath = 'storage/app/public/' . $cleanPath;
-              }
+        } else {
+            // BERSIHKAN prefix salah
+            $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($p, '/'));
+            // clean hasilnya: avatars/abc.png
 
-              $photo = asset($publicPath);
-          }
-      } elseif (!empty($user->photo_url)) {
-          // fallback lama
-          $photo = $user->photo_url;
-      }
-  }
-
-  // Helper format tanggal
-  $fmtDate = function($v, $withTime = false) {
-      if (!$v) return '-';
-      try {
-          $c = \Carbon\Carbon::parse($v);
-          return $withTime ? $c->format('d M Y H:i') : $c->format('d M Y');
-      } catch (\Throwable $e) {
-          return $v;
-      }
-  };
+            // BENTUK URL SESUAI PERMINTAANMU
+            $photo = rtrim(env('APP_URL'), '/') . '/storage/app/public/' . $clean;
+        }
+    }
 
   // kalau di model ada relation creator/updater
   $creatorName = optional($user->creator)->name ?? ($user->created_by ?? '-');
