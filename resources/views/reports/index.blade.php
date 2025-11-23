@@ -1,6 +1,11 @@
 @extends('layouts.app')
 @section('title', 'Report')
 
+@push('head')
+  {{-- Chart.js CDN --}}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+@endpush
+
 @section('content')
 @php
   // ====== SAFE FALLBACKS ======
@@ -35,6 +40,11 @@
   $recentSops = $recentSops ?? collect();
   $recentSubs = $recentSubs ?? collect();
 
+  // optional chart datas (controller ngirim ini)
+  $sopPerDay  = $sopPerDay ?? collect();
+  $subPerDay  = $subPerDay ?? collect();
+  $formByDept = $formByDept ?? [];
+
   $grandSop = array_sum($sopTotals);
   $grandSub = array_sum($subTotals);
 
@@ -51,6 +61,24 @@
     'approved' => ['label'=>'Approved', 'cls'=>'bg-emerald-50 text-emerald-700 border-emerald-200'],
     'rejected' => ['label'=>'Rejected', 'cls'=>'bg-rose-50 text-rose-700 border-rose-200'],
   ];
+
+  // ====== PREPARE CHART DATA ======
+  $fmtDay = fn($d) => \Carbon\Carbon::parse($d)->format('d M');
+
+  $sopDays   = $sopPerDay->pluck('day')->map($fmtDay)->values();
+  $sopCounts = $sopPerDay->pluck('total')->map(fn($v)=>(int)$v)->values();
+
+  $subDays   = $subPerDay->pluck('day')->map($fmtDay)->values();
+  $subCounts = $subPerDay->pluck('total')->map(fn($v)=>(int)$v)->values();
+
+  $sopStatusLabels = collect(array_keys($sopTotals))->map(fn($k)=>$statusMapSop[$k]['label'] ?? strtoupper($k))->values();
+  $sopStatusValues = collect(array_values($sopTotals))->map(fn($v)=>(int)$v)->values();
+
+  $subStatusLabels = collect(array_keys($subTotals))->map(fn($k)=>$statusMapSub[$k]['label'] ?? strtoupper($k))->values();
+  $subStatusValues = collect(array_values($subTotals))->map(fn($v)=>(int)$v)->values();
+
+  $deptLabels = collect(array_keys($formByDept))->values();
+  $deptValues = collect(array_values($formByDept))->map(fn($v)=>(int)$v)->values();
 @endphp
 
 <div class="max-w-7xl mx-auto space-y-5">
@@ -198,6 +226,60 @@
 
   </div>
 
+  {{-- ================= CHARTS ================= --}}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    {{-- SOP Trend --}}
+    <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm p-5">
+      <div class="text-sm font-semibold text-slate-900 mb-3">Tren SOP (30 hari terakhir)</div>
+      <div class="h-56">
+        <canvas id="sopTrendChart"></canvas>
+      </div>
+      @if($sopPerDay->count() === 0)
+        <div class="text-[11px] text-slate-400 italic mt-2">Belum ada data tren SOP.</div>
+      @endif
+    </div>
+
+    {{-- Submission Trend --}}
+    <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm p-5">
+      <div class="text-sm font-semibold text-slate-900 mb-3">Tren Submissions (30 hari terakhir)</div>
+      <div class="h-56">
+        <canvas id="subTrendChart"></canvas>
+      </div>
+      @if($subPerDay->count() === 0)
+        <div class="text-[11px] text-slate-400 italic mt-2">Belum ada data tren submission.</div>
+      @endif
+    </div>
+
+    {{-- SOP Status Doughnut --}}
+    <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm p-5">
+      <div class="text-sm font-semibold text-slate-900 mb-3">Distribusi Status SOP</div>
+      <div class="h-56">
+        <canvas id="sopStatusChart"></canvas>
+      </div>
+    </div>
+
+    {{-- Submission Status Doughnut --}}
+    <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm p-5">
+      <div class="text-sm font-semibold text-slate-900 mb-3">Distribusi Status Submissions</div>
+      <div class="h-56">
+        <canvas id="subStatusChart"></canvas>
+      </div>
+    </div>
+
+    {{-- Forms by Dept --}}
+    <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm p-5 lg:col-span-2">
+      <div class="text-sm font-semibold text-slate-900 mb-3">Forms by Department</div>
+      <div class="h-64">
+        <canvas id="formDeptChart"></canvas>
+      </div>
+      @if(count($formByDept) === 0)
+        <div class="text-[11px] text-slate-400 italic mt-2">Belum ada data forms per department.</div>
+      @endif
+    </div>
+
+  </div>
+
   {{-- ================= RECENT TABLES ================= --}}
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -312,4 +394,139 @@
   </div>
 
 </div>
+
+{{-- ================= CHART INIT ================= --}}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // data dari PHP ke JS
+  const sopDays   = @json($sopDays);
+  const sopCounts = @json($sopCounts);
+
+  const subDays   = @json($subDays);
+  const subCounts = @json($subCounts);
+
+  const sopStatusLabels = @json($sopStatusLabels);
+  const sopStatusValues = @json($sopStatusValues);
+
+  const subStatusLabels = @json($subStatusLabels);
+  const subStatusValues = @json($subStatusValues);
+
+  const deptLabels = @json($deptLabels);
+  const deptValues = @json($deptValues);
+
+  // ---------- SOP Trend ----------
+  const sopTrendCtx = document.getElementById('sopTrendChart');
+  if (sopTrendCtx) {
+    new Chart(sopTrendCtx, {
+      type: 'line',
+      data: {
+        labels: sopDays,
+        datasets: [{
+          label: 'SOP dibuat',
+          data: sopCounts,
+          tension: 0.35,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
+    });
+  }
+
+  // ---------- Submission Trend ----------
+  const subTrendCtx = document.getElementById('subTrendChart');
+  if (subTrendCtx) {
+    new Chart(subTrendCtx, {
+      type: 'line',
+      data: {
+        labels: subDays,
+        datasets: [{
+          label: 'Submissions masuk',
+          data: subCounts,
+          tension: 0.35,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
+    });
+  }
+
+  // ---------- SOP Status Doughnut ----------
+  const sopStatusCtx = document.getElementById('sopStatusChart');
+  if (sopStatusCtx) {
+    new Chart(sopStatusCtx, {
+      type: 'doughnut',
+      data: {
+        labels: sopStatusLabels,
+        datasets: [{
+          data: sopStatusValues,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  // ---------- Submission Status Doughnut ----------
+  const subStatusCtx = document.getElementById('subStatusChart');
+  if (subStatusCtx) {
+    new Chart(subStatusCtx, {
+      type: 'doughnut',
+      data: {
+        labels: subStatusLabels,
+        datasets: [{
+          data: subStatusValues,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  // ---------- Forms by Dept Bar ----------
+  const formDeptCtx = document.getElementById('formDeptChart');
+  if (formDeptCtx) {
+    new Chart(formDeptCtx, {
+      type: 'bar',
+      data: {
+        labels: deptLabels,
+        datasets: [{
+          label: 'Total Forms',
+          data: deptValues,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
+    });
+  }
+});
+</script>
 @endsection

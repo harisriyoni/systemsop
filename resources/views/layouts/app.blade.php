@@ -54,18 +54,53 @@
     $logoUrl = asset($logoPath);
 
     // ================= AVATAR USER =================
+    /**
+     * FIX PHOTO LOGIC:
+     * - kalau avatar_path sudah URL (http/https) -> pakai langsung
+     * - kalau avatar_path path storage -> bersihkan dan bentuk URL:
+     *   {host}/storage/app/public/avatars/xxx.png  (sesuai kebiasaan hosting kamu)
+     * - fallback ke photo_url kalau ada
+     */
     $photo = null;
-    if ($user) {
-        if (!empty($user->avatar_path)) {
-            $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($user->avatar_path);
-        } elseif (!empty($user->photo_url)) {
-            $photo = $user->photo_url;
-        } elseif (!empty($user->avatar_url)) {
-            $photo = $user->avatar_url;
-        } elseif (!empty($user->profile_photo_path)) {
-            $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($user->profile_photo_path);
+
+    if ($user && $user->avatar_path) {
+        $p = $user->avatar_path;
+
+        // Jika avatar_path sudah URL penuh → pakai saja
+        if (\Illuminate\Support\Str::startsWith($p, ['http://','https://','//'])) {
+            $photo = $p;
+        } else {
+            // Bersihkan path yang salah:
+            // bisa berupa:
+            // - "avatars/abc.png"
+            // - "storage/avatars/abc.png"
+            // - "storage/app/public/avatars/abc.png"
+            $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($p, '/'));
+
+            // Bangun URL full pakai host sekarang (local ataupun production)
+            $host = request()->getSchemeAndHttpHost(); 
+            // contoh: http://127.0.0.1:8000 atau https://darkred-giraffe-...hostingersite.com
+
+            // HOST kamu butuh /storage/app/public/...
+            $photo = $host . '/storage/app/public/' . $clean;
         }
+    } elseif ($user && $user->photo_url) {
+        $photo = $user->photo_url;
     }
+
+    // Helper format tanggal (INI YANG TADI HILANG)
+    $fmtDate = function ($v, $withTime = false) {
+        if (!$v) return '-';
+        try {
+            $c = \Carbon\Carbon::parse($v);
+            return $withTime
+                ? $c->format('d M Y H:i')
+                : $c->format('d M Y');
+        } catch (\Throwable $e) {
+            return $v;
+        }
+    };
+
 
     $notifCount = $notifCount ?? 0;
 
@@ -395,49 +430,45 @@
                     {{ request()->routeIs('check_sheets.submissions*') && !request('status')
                         ? 'bg-[#05727d] text-white shadow-sm'
                         : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                        <div
-                            class="w-9 h-9 rounded-lg grid place-items-center
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
                         {{ request()->routeIs('check_sheets.submissions*') && !request('status')
                             ? 'bg-white/15'
                             : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                            <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v6H4zM4 14h16v6H4z" />
-                            </svg>
-                        </div>
-                        <span x-show="!collapsed" x-transition>Submissions</span>
-                    </a>
-                @endif
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v6H4zM4 14h16v6H4z" />
+                        </svg>
+                    </div>
+                    <span x-show="!collapsed" x-transition>Submissions</span>
+                </a>
+            @endif
 
-                {{-- Approval Check Sheet --}}
-                @if ($user && $user->isRole(['admin', 'qa', 'logistik']))
-                    <a href="{{ route('check_sheets.submissions', ['status' => 'submitted']) }}"
-                        class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                    {{ request()->routeIs('check_sheets.submissions*') && request('status') == 'submitted'
+            {{-- Approval Check Sheet --}}
+            @if($user && $user->isRole(['admin','qa','logistik']))
+                <a href="{{ route('check_sheets.submissions', ['status'=>'submitted']) }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
+                    {{ request()->routeIs('check_sheets.submissions*') && request('status')=='submitted'
                         ? 'bg-[#05727d] text-white shadow-sm'
                         : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                        <div
-                            class="w-9 h-9 rounded-lg grid place-items-center
-                        {{ request()->routeIs('check_sheets.submissions*') && request('status') == 'submitted'
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
+                        {{ request()->routeIs('check_sheets.submissions*') && request('status')=='submitted'
                             ? 'bg-white/15'
                             : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                            <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                        </div>
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                    </div>
 
-                        <span x-show="!collapsed" x-transition class="flex-1">Approval Check Sheet</span>
+                    <span x-show="!collapsed" x-transition class="flex-1">Approval Check Sheet</span>
 
-                        <span x-show="!collapsed" x-transition
-                            class="text-[11px] px-2 py-0.5 rounded-full
-                          {{ $badgeCs > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500' }}">
-                            {{ $badgeCs }}
-                        </span>
-                    </a>
-                @endif
+                    <span x-show="!collapsed" x-transition
+                          class="text-[11px] px-2 py-0.5 rounded-full
+                          {{ $badgeCs>0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500' }}">
+                        {{ $badgeCs }}
+                    </span>
+                </a>
+            @endif
 
                 {{-- REPORT GROUP --}}
                 @if ($user && $user->isRole(['admin', 'produksi', 'qa', 'logistik']))

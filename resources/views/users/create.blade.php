@@ -8,10 +8,10 @@
 
 <div class="max-w-3xl mx-auto space-y-4">
 
-  <div class="bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden">
-    <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-5 text-white">
+  <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm overflow-hidden">
+    <div class="bg-gradient-to-r from-[#05727d] to-[#04656f] px-6 py-5 text-white">
       <div class="text-2xl font-semibold">Tambah User</div>
-      <div class="text-sm text-blue-50/90 mt-1">
+      <div class="text-sm text-white/80 mt-1">
         Buat akun baru untuk akses SOP & Check Sheet.
       </div>
     </div>
@@ -32,27 +32,30 @@
       @endif
 
       <div class="grid md:grid-cols-2 gap-4">
+        {{-- Nama --}}
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Nama</label>
+          <label class="block text-xs text-slate-600 mb-1">Nama</label>
           <input type="text" name="name" value="{{ old('name') }}"
                  class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
-                        focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                        focus:ring-2 focus:ring-[#05727d]/30 focus:border-[#05727d] outline-none"
                  placeholder="Nama lengkap">
         </div>
 
+        {{-- Email --}}
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Email</label>
+          <label class="block text-xs text-slate-600 mb-1">Email</label>
           <input type="email" name="email" value="{{ old('email') }}"
                  class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
-                        focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                        focus:ring-2 focus:ring-[#05727d]/30 focus:border-[#05727d] outline-none"
                  placeholder="email@perusahaan.com">
         </div>
 
+        {{-- Role --}}
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Role</label>
+          <label class="block text-xs text-slate-600 mb-1">Role</label>
           <select name="role"
                   class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
-                         focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none">
+                         focus:ring-2 focus:ring-[#05727d]/30 focus:border-[#05727d] outline-none">
             @foreach($roles as $r)
               <option value="{{ $r }}" {{ old('role')==$r?'selected':'' }}>
                 {{ strtoupper($r) }}
@@ -61,41 +64,45 @@
           </select>
         </div>
 
+        {{-- Status --}}
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Status</label>
-          <select name="is_active"
+          <label class="block text-xs text-slate-600 mb-1">Status</label>
+          <select name="status"
                   class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
-                         focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none">
-            <option value="1" {{ old('is_active',1)==1?'selected':'' }}>Aktif</option>
-            <option value="0" {{ old('is_active')==='0'?'selected':'' }}>Nonaktif</option>
+                         focus:ring-2 focus:ring-[#05727d]/30 focus:border-[#05727d] outline-none">
+            <option value="active"   {{ old('status','active')=='active'?'selected':'' }}>Aktif</option>
+            <option value="inactive" {{ old('status')=='inactive'?'selected':'' }}>Nonaktif</option>
+            <option value="suspended" {{ old('status')=='suspended'?'selected':'' }}>Suspended</option>
           </select>
         </div>
 
+        {{-- Password --}}
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Password</label>
+          <label class="block text-xs text-slate-600 mb-1">Password</label>
           <input type="password" name="password"
                  class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
-                        focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                        focus:ring-2 focus:ring-[#05727d]/30 focus:border-[#05727d] outline-none"
                  placeholder="Minimal 6 karakter">
         </div>
 
+        {{-- Konfirmasi Password --}}
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Konfirmasi Password</label>
+          <label class="block text-xs text-slate-600 mb-1">Konfirmasi Password</label>
           <input type="password" name="password_confirmation"
                  class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs
-                        focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none">
+                        focus:ring-2 focus:ring-[#05727d]/30 focus:border-[#05727d] outline-none">
         </div>
       </div>
 
       <div class="flex items-center justify-between pt-2">
         <a href="{{ route('users.index') }}"
-           class="text-xs text-slate-500 hover:underline">
+           class="text-xs text-slate-500 hover:text-[#05727d] hover:underline">
           ← Kembali
         </a>
 
         <div class="flex items-center gap-2">
           <button
-            class="inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">
+            class="inline-flex items-center px-4 py-2 rounded-xl bg-[#05727d] hover:brightness-110 text-white text-xs font-semibold">
             Simpan User
           </button>
         </div>

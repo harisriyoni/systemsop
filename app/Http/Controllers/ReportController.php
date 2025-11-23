@@ -6,70 +6,69 @@ use App\Models\Sop;
 use App\Models\CheckSheet;
 use App\Models\CheckSheetSubmission;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 class ReportController extends Controller
 {
-    /**
-     * Dashboard report utama (SOP + Forms + Submissions).
-     * Filter:
-     * - from (YYYY-MM-DD)
-     * - to (YYYY-MM-DD)
-     * - department (string, optional)
-     * - product (string, optional)
-     * - line (string, optional)
-     * - status (string, optional) -> khusus submissions (optional)
-     */
+    // =========================
+    // DASHBOARD REPORT (ALL TIME, NO DATE FILTER)
+    // =========================
     public function index(Request $request)
     {
-        // ===== RANGE TANGGAL DEFAULT 30 HARI (SAFE PARSE) =====
-        $from = $request->filled('from')
-            ? $this->safeParseDate($request->from, now()->subDays(30))->startOfDay()
-            : now()->subDays(30)->startOfDay();
+        $this->authorizeReport($request);
 
-        $to = $request->filled('to')
-            ? $this->safeParseDate($request->to, now())->endOfDay()
-            : now()->endOfDay();
+        // ===== VALIDASI INPUT (tanpa date) =====
+        $validated = $request->validate([
+            'department' => ['nullable','string','max:80'],
+            'product'    => ['nullable','string','max:80'],
+            'line'       => ['nullable','string','max:80'],
+            'status'     => ['nullable','string', Rule::in(['submitted','under_review','approved','rejected'])],
+            'type'       => ['nullable','string', Rule::in(['sop','checksheet'])], // buat dropdown blade, optional
+        ]);
 
-        if ($from->gt($to)) {
-            // swap kalau user kebalik input
-            [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+        $department = $validated['department'] ?? null;
+        $product    = $validated['product'] ?? null;
+        $line       = $validated['line'] ?? null;
+        $subStatus  = $validated['status'] ?? null;
+        $type       = $validated['type'] ?? null; // kalo mau filter tipe
+
+        $deptLike = $this->escapeLike($department);
+        $prodLike = $this->escapeLike($product);
+        $lineLike = $this->escapeLike($line);
+
+        // =========================================================
+        // SOP REPORT (ALL TIME)
+        // =========================================================
+        $sopBase = Sop::query()
+            // ->latestPerCode() // kalau mau hanya versi terbaru per code, buka ini
+            ->when($department, fn($q) => $q->where('department', 'like', "%{$deptLike}%"))
+            ->when($product,    fn($q) => $q->where('product',    'like', "%{$prodLike}%"))
+            ->when($line,       fn($q) => $q->where('line',       'like', "%{$lineLike}%"));
+
+        // kalau user pilih type=checksheet, SOP summary tetap dihitung? 
+        // kalau mau SOP kosong saat type=checksheet:
+        if ($type === 'checksheet') {
+            $sopBase->whereRaw('1=0');
         }
-
-        $department = $request->filled('department') ? trim($request->department) : null;
-        $product    = $request->filled('product') ? trim($request->product) : null;
-        $line       = $request->filled('line') ? trim($request->line) : null;
-        $subStatus  = $request->filled('status') ? trim($request->status) : null;
-
-        // =========================================================
-        // SOP REPORT
-        // =========================================================
-        $sopBase = Sop::query()->whereBetween('created_at', [$from, $to]);
-
-        if ($department) $sopBase->where('department', 'like', "%{$department}%");
-        if ($product)    $sopBase->where('product', 'like', "%{$product}%");
-        if ($line)       $sopBase->where('line', 'like', "%{$line}%");
 
         $sopTotal = (clone $sopBase)->count();
 
         $sopByStatus = (clone $sopBase)
             ->select('status', DB::raw('COUNT(*) as total'))
             ->groupBy('status')
-            ->pluck('total', 'status')
+            ->pluck('total','status')
             ->toArray();
 
-        // pastiin status key lengkap biar view gak undefined
         $sopStatuses = ['draft','waiting_approval','approved','expired','rejected','archived'];
         foreach ($sopStatuses as $st) {
             $sopByStatus[$st] = $sopByStatus[$st] ?? 0;
         }
 
-        // public vs private (safe kalau kolom belum ada)
         $sopPublicStats = (object)[
-            'total_public' => 0,
+            'total_public'  => 0,
             'total_private' => $sopTotal,
         ];
 
@@ -82,7 +81,6 @@ class ReportController extends Controller
                 ->first();
         }
 
-        // pending approval per stage (safe columns)
         $sopPendingApproval = (object)[
             'total_waiting'     => 0,
             'produksi_pending'  => 0,
@@ -90,13 +88,13 @@ class ReportController extends Controller
             'logistik_pending'  => 0,
         ];
 
-        $hasProdCol = Schema::hasColumn('sops', 'is_approved_produksi');
-        $hasQaCol   = Schema::hasColumn('sops', 'is_approved_qa');
-        $hasLogCol  = Schema::hasColumn('sops', 'is_approved_logistik');
+        $hasProdCol = Schema::hasColumn('sops','is_approved_produksi');
+        $hasQaCol   = Schema::hasColumn('sops','is_approved_qa');
+        $hasLogCol  = Schema::hasColumn('sops','is_approved_logistik');
 
         if ($hasProdCol && $hasQaCol && $hasLogCol) {
             $sopPendingApproval = (clone $sopBase)
-                ->where('status', 'waiting_approval')
+                ->where('status','waiting_approval')
                 ->selectRaw("
                     COUNT(*) as total_waiting,
                     SUM(CASE WHEN is_approved_produksi = 0 THEN 1 ELSE 0 END) as produksi_pending,
@@ -105,33 +103,36 @@ class ReportController extends Controller
                 ")
                 ->first();
         } else {
-            // fallback kalau belum punya kolom stage
-            $tmp = (clone $sopBase)->where('status','waiting_approval')->count();
-            $sopPendingApproval->total_waiting = $tmp;
+            $sopPendingApproval->total_waiting =
+                (clone $sopBase)->where('status','waiting_approval')->count();
         }
 
-        // trend SOP per hari (created)
+        // trend SOP per hari (last 30 days biar ringan)
         $sopPerDay = (clone $sopBase)
+            ->where('created_at', '>=', now()->subDays(30))
             ->selectRaw("DATE(created_at) as day, COUNT(*) as total")
             ->groupBy('day')
             ->orderBy('day')
             ->get();
 
         // =========================================================
-        // CHECK SHEET FORMS REPORT
+        // CHECK SHEET FORMS REPORT (ALL TIME)
         // =========================================================
-        $formBase = CheckSheet::query()->whereBetween('created_at', [$from, $to]);
+        $formBase = CheckSheet::query()
+            ->when($department, fn($q) => $q->where('department', 'like', "%{$deptLike}%"))
+            ->when($product,    fn($q) => $q->where('product',    'like', "%{$prodLike}%"))
+            ->when($line,       fn($q) => $q->where('line',       'like', "%{$lineLike}%"));
 
-        if ($department) $formBase->where('department', 'like', "%{$department}%");
-        if ($product)    $formBase->where('product', 'like', "%{$product}%");
-        if ($line)       $formBase->where('line', 'like', "%{$line}%");
+        if ($type === 'sop') {
+            $formBase->whereRaw('1=0');
+        }
 
         $formTotal = (clone $formBase)->count();
 
         $formByStatus = (clone $formBase)
             ->select('status', DB::raw('COUNT(*) as total'))
             ->groupBy('status')
-            ->pluck('total', 'status')
+            ->pluck('total','status')
             ->toArray();
 
         $formStatuses = ['draft','active','inactive','archived'];
@@ -143,26 +144,25 @@ class ReportController extends Controller
             ->select('department', DB::raw('COUNT(*) as total'))
             ->groupBy('department')
             ->orderByDesc('total')
-            ->pluck('total', 'department')
+            ->pluck('total','department')
             ->toArray();
 
         // =========================================================
-        // SUBMISSIONS REPORT
+        // SUBMISSIONS REPORT (ALL TIME)
         // =========================================================
         $subBase = CheckSheetSubmission::query()
             ->whereNotNull('submitted_at')
-            ->whereBetween('submitted_at', [$from, $to]);
-
-        if ($department || $product || $line) {
-            $subBase->whereHas('checkSheet', function ($q) use ($department,$product,$line) {
-                if ($department) $q->where('department', 'like', "%{$department}%");
-                if ($product)    $q->where('product', 'like', "%{$product}%");
-                if ($line)       $q->where('line', 'like', "%{$line}%");
+            ->when($subStatus, fn($q) => $q->where('status', $subStatus))
+            ->when(($department || $product || $line), function ($q) use ($deptLike,$prodLike,$lineLike,$department,$product,$line) {
+                $q->whereHas('checkSheet', function ($cs) use ($deptLike,$prodLike,$lineLike,$department,$product,$line) {
+                    if ($department) $cs->where('department','like',"%{$deptLike}%");
+                    if ($product)    $cs->where('product','like',"%{$prodLike}%");
+                    if ($line)       $cs->where('line','like',"%{$lineLike}%");
+                });
             });
-        }
 
-        if ($subStatus) {
-            $subBase->where('status', $subStatus);
+        if ($type === 'sop') {
+            $subBase->whereRaw('1=0');
         }
 
         $subTotal = (clone $subBase)->count();
@@ -170,7 +170,7 @@ class ReportController extends Controller
         $subByStatus = (clone $subBase)
             ->select('status', DB::raw('COUNT(*) as total'))
             ->groupBy('status')
-            ->pluck('total', 'status')
+            ->pluck('total','status')
             ->toArray();
 
         $subStatuses = ['submitted','under_review','approved','rejected'];
@@ -178,121 +178,166 @@ class ReportController extends Controller
             $subByStatus[$st] = $subByStatus[$st] ?? 0;
         }
 
-        // trend submissions per hari
+        // trend submissions per hari (last 30 days)
         $subPerDay = (clone $subBase)
+            ->where('submitted_at', '>=', now()->subDays(30))
             ->selectRaw("DATE(submitted_at) as day, COUNT(*) as total")
             ->groupBy('day')
             ->orderBy('day')
             ->get();
 
-        // top forms (tanpa N+1)
-        $topForms = (clone $subBase)
-            ->join('check_sheets as cs', 'cs.id', '=', 'check_sheet_submissions.check_sheet_id')
-            ->selectRaw("check_sheet_id, cs.title, cs.department, COUNT(*) as total")
-            ->groupBy('check_sheet_id','cs.title','cs.department')
+        // TOP FORMS (ALL TIME sesuai filter)
+        $topForms = CheckSheet::query()
+            ->when($department, fn($q) => $q->where('department', 'like', "%{$deptLike}%"))
+            ->when($product,    fn($q) => $q->where('product',    'like', "%{$prodLike}%"))
+            ->when($line,       fn($q) => $q->where('line',       'like', "%{$lineLike}%"))
+            ->withCount(['submissions as total' => function ($q) use ($subStatus) {
+                $q->whereNotNull('submitted_at')
+                  ->when($subStatus, fn($qq) => $qq->where('status', $subStatus));
+            }])
             ->orderByDesc('total')
             ->limit(5)
-            ->get()
-            ->map(fn($r) => [
-                'id'    => $r->check_sheet_id,
-                'title' => $r->title,
-                'dept'  => $r->department ?? '-',
-                'total' => (int) $r->total,
+            ->get(['id','title','department'])
+            ->map(fn($cs) => [
+                'id'    => $cs->id,
+                'title' => $cs->title,
+                'dept'  => $cs->department ?? '-',
+                'total' => (int) $cs->total,
             ]);
 
-        // top operators
-        $topOperatorsRaw = (clone $subBase)
-            ->selectRaw("operator_id, COUNT(*) as total")
-            ->groupBy('operator_id')
+        // TOP OPERATORS (ALL TIME sesuai filter)
+        $topOperators = User::query()
+            ->withCount(['submissions as total' => function ($q) use ($subStatus,$deptLike,$prodLike,$lineLike,$department,$product,$line) {
+                $q->whereNotNull('submitted_at')
+                  ->when($subStatus, fn($qq) => $qq->where('status', $subStatus))
+                  ->when(($department || $product || $line), function ($qq) use ($deptLike,$prodLike,$lineLike,$department,$product,$line) {
+                      $qq->whereHas('checkSheet', function ($cs) use ($deptLike,$prodLike,$lineLike,$department,$product,$line) {
+                          if ($department) $cs->where('department','like',"%{$deptLike}%");
+                          if ($product)    $cs->where('product','like',"%{$prodLike}%");
+                          if ($line)       $cs->where('line','like',"%{$lineLike}%");
+                      });
+                  });
+            }])
+            ->whereHas('submissions', fn($q) => $q->whereNotNull('submitted_at'))
             ->orderByDesc('total')
+            ->limit(5)
+            ->get(['id','name'])
+            ->map(fn($u) => [
+                'id'    => $u->id,
+                'name'  => $u->name ?? 'Unknown',
+                'total' => (int) $u->total,
+            ]);
+
+        // =========================================================
+        // ADAPTER VARS BUAT BLADE reports.index (BIAR GAK KOSONG)
+        // =========================================================
+        $sopTotals = [
+            'draft'            => (int)($sopByStatus['draft'] ?? 0),
+            'waiting_approval' => (int)($sopByStatus['waiting_approval'] ?? 0),
+            'approved'         => (int)($sopByStatus['approved'] ?? 0),
+            'expired'          => (int)($sopByStatus['expired'] ?? 0),
+        ];
+
+        $formTotals = [
+            'active'   => (int)($formByStatus['active'] ?? 0),
+            'draft'    => (int)($formByStatus['draft'] ?? 0),
+            'inactive' => (int)($formByStatus['inactive'] ?? 0),
+        ];
+
+        $subTotals = [
+            'submitted'    => (int)($subByStatus['submitted'] ?? 0),
+            'under_review' => (int)($subByStatus['under_review'] ?? 0),
+            'approved'     => (int)($subByStatus['approved'] ?? 0),
+            'rejected'     => (int)($subByStatus['rejected'] ?? 0),
+        ];
+
+        // Recent SOP (last 5)
+        $recentSops = (clone $sopBase)
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get(['id','code','title','department','status','created_at']);
+
+        // Recent Submissions (last 5)
+        $recentSubs = (clone $subBase)
+            ->with([
+                'checkSheet:id,title,department',
+                'operator:id,name',
+            ])
+            ->orderByDesc('submitted_at')
             ->limit(5)
             ->get();
 
-        $operatorIds = $topOperatorsRaw->pluck('operator_id')->filter()->unique()->values();
-        $operators = User::whereIn('id', $operatorIds)->pluck('name', 'id');
-
-        $topOperators = $topOperatorsRaw->map(function ($row) use ($operators) {
-            return [
-                'id'    => $row->operator_id,
-                'name'  => $operators[$row->operator_id] ?? 'Unknown',
-                'total' => (int) $row->total,
-            ];
-        });
-
-        // =========================================================
-        // KIRIM KE VIEW
-        // =========================================================
         return view('reports.index', [
-            'from' => $from,
-            'to' => $to,
+            // filters
             'department' => $department,
-            'product' => $product,
-            'line' => $line,
-            'status' => $subStatus,
+            'product'    => $product,
+            'line'       => $line,
+            'status'     => $subStatus,
+            'type'       => $type,
 
-            // SOP
-            'sopTotal' => $sopTotal,
-            'sopByStatus' => $sopByStatus,
-            'sopPublicStats' => $sopPublicStats,
+            // ✅ sesuai blade
+            'sopTotals'  => $sopTotals,
+            'formTotals' => $formTotals,
+            'subTotals'  => $subTotals,
+            'recentSops' => $recentSops,
+            'recentSubs' => $recentSubs,
+
+            // optional kalau nanti dipakai chart lain
+            'sopTotal'           => $sopTotal,
+            'sopByStatus'        => $sopByStatus,
+            'sopPublicStats'     => $sopPublicStats,
             'sopPendingApproval' => $sopPendingApproval,
-            'sopPerDay' => $sopPerDay,
+            'sopPerDay'          => $sopPerDay,
 
-            // Forms
-            'formTotal' => $formTotal,
+            'formTotal'    => $formTotal,
             'formByStatus' => $formByStatus,
-            'formByDept' => $formByDept,
+            'formByDept'   => $formByDept,
 
-            // Submissions
-            'subTotal' => $subTotal,
-            'subByStatus' => $subByStatus,
-            'subPerDay' => $subPerDay,
-            'topForms' => $topForms,
+            'subTotal'     => $subTotal,
+            'subByStatus'  => $subByStatus,
+            'subPerDay'    => $subPerDay,
+            'topForms'     => $topForms,
             'topOperators' => $topOperators,
         ]);
     }
 
-    /**
-     * Export submissions CSV.
-     */
+    // =========================
+    // EXPORT SUBMISSIONS CSV (ALL TIME)
+    // =========================
     public function exportSubmissionsCsv(Request $request)
     {
-        $from = $request->filled('from')
-            ? $this->safeParseDate($request->from, now()->subDays(30))->startOfDay()
-            : now()->subDays(30)->startOfDay();
+        $this->authorizeReport($request);
 
-        $to = $request->filled('to')
-            ? $this->safeParseDate($request->to, now())->endOfDay()
-            : now()->endOfDay();
+        $validated = $request->validate([
+            'department' => ['nullable','string','max:80'],
+            'product'    => ['nullable','string','max:80'],
+            'line'       => ['nullable','string','max:80'],
+            'status'     => ['nullable','string', Rule::in(['submitted','under_review','approved','rejected'])],
+        ]);
 
-        if ($from->gt($to)) {
-            [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
-        }
+        $department = $validated['department'] ?? null;
+        $product    = $validated['product'] ?? null;
+        $line       = $validated['line'] ?? null;
+        $status     = $validated['status'] ?? null;
 
-        $department = $request->filled('department') ? trim($request->department) : null;
-        $product    = $request->filled('product') ? trim($request->product) : null;
-        $line       = $request->filled('line') ? trim($request->line) : null;
-        $status     = $request->filled('status') ? trim($request->status) : null;
+        $deptLike = $this->escapeLike($department);
+        $prodLike = $this->escapeLike($product);
+        $lineLike = $this->escapeLike($line);
 
-        $q = CheckSheetSubmission::with(['checkSheet','operator','reviewer'])
+        $q = CheckSheetSubmission::query()
+            ->with(['checkSheet:id,title,department,product,line','operator:id,name','reviewer:id,name'])
             ->whereNotNull('submitted_at')
-            ->whereBetween('submitted_at', [$from, $to])
+            ->when($status, fn($qq) => $qq->where('status', $status))
+            ->when(($department || $product || $line), function ($qq) use ($department,$product,$line,$deptLike,$prodLike,$lineLike) {
+                $qq->whereHas('checkSheet', function ($cs) use ($department,$product,$line,$deptLike,$prodLike,$lineLike) {
+                    if ($department) $cs->where('department','like',"%{$deptLike}%");
+                    if ($product)    $cs->where('product','like',"%{$prodLike}%");
+                    if ($line)       $cs->where('line','like',"%{$lineLike}%");
+                });
+            })
             ->orderByDesc('submitted_at');
 
-        if ($department || $product || $line) {
-            $q->whereHas('checkSheet', function ($sub) use ($department,$product,$line) {
-                if ($department) $sub->where('department', 'like', "%{$department}%");
-                if ($product)    $sub->where('product', 'like', "%{$product}%");
-                if ($line)       $sub->where('line', 'like', "%{$line}%");
-            });
-        }
-
-        if ($status) {
-            $q->where('status', $status);
-        }
-
-        $rows = $q->get();
-
-        $filename = "checksheet_submissions_{$from->format('Ymd')}_{$to->format('Ymd')}.csv";
+        $filename = "checksheet_submissions_alltime.csv";
         $headers = [
             "Content-Type"        => "text/csv",
             "Content-Disposition" => "attachment; filename={$filename}",
@@ -300,7 +345,6 @@ class ReportController extends Controller
 
         $columns = [
             'Submitted At',
-            'Form Code',
             'Form Title',
             'Department',
             'Product',
@@ -315,30 +359,30 @@ class ReportController extends Controller
             'Data JSON',
         ];
 
-        $callback = function () use ($rows, $columns) {
+        $callback = function () use ($q, $columns) {
             $fh = fopen('php://output', 'w');
             fputcsv($fh, $columns);
 
-            foreach ($rows as $r) {
-                $data = is_array($r->data) ? $r->data : (json_decode($r->data, true) ?: []);
-
-                fputcsv($fh, [
-                    optional($r->submitted_at)->format('Y-m-d H:i:s'),
-                    $r->checkSheet->code ?? '-',                // kolom opsional
-                    $r->checkSheet->title ?? '-',
-                    $r->checkSheet->department ?? '-',
-                    $r->checkSheet->product ?? '-',
-                    $r->checkSheet->line ?? '-',
-                    $r->operator->name ?? '-',
-                    $data['shift'] ?? '-',
-                    str_replace(["\r","\n"], ' | ', $data['result'] ?? '-'),
-                    $data['notes'] ?? '-',
-                    $r->status,
-                    $r->reviewer->name ?? '-',
-                    optional($r->reviewed_at)->format('Y-m-d H:i:s'),
-                    json_encode($data, JSON_UNESCAPED_UNICODE),
-                ]);
-            }
+            $q->chunk(500, function ($rows) use ($fh) {
+                foreach ($rows as $r) {
+                    $data = is_array($r->data) ? $r->data : (json_decode($r->data, true) ?: []);
+                    fputcsv($fh, [
+                        optional($r->submitted_at)->format('Y-m-d H:i:s'),
+                        $r->checkSheet->title ?? '-',
+                        $r->checkSheet->department ?? '-',
+                        $r->checkSheet->product ?? '-',
+                        $r->checkSheet->line ?? '-',
+                        $r->operator->name ?? '-',
+                        $data['shift'] ?? '-',
+                        str_replace(["\r","\n"], ' | ', $data['result'] ?? '-'),
+                        $data['notes'] ?? '-',
+                        $r->status,
+                        $r->reviewer->name ?? '-',
+                        optional($r->reviewed_at)->format('Y-m-d H:i:s'),
+                        json_encode($data, JSON_UNESCAPED_UNICODE),
+                    ]);
+                }
+            });
 
             fclose($fh);
         };
@@ -346,52 +390,49 @@ class ReportController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    /**
-     * Export SOP PDF (opsional route: reports.sop.export).
-     * - Kalau DomPDF ada -> PDF
-     * - Kalau tidak ada -> CSV fallback
-     */
+    // =========================
+    // EXPORT SOP PDF / CSV (ALL TIME)
+    // =========================
     public function exportSopPdf(Request $request)
     {
-        $from = $request->filled('from')
-            ? $this->safeParseDate($request->from, now()->subDays(30))->startOfDay()
-            : now()->subDays(30)->startOfDay();
+        $this->authorizeReport($request);
 
-        $to = $request->filled('to')
-            ? $this->safeParseDate($request->to, now())->endOfDay()
-            : now()->endOfDay();
+        $validated = $request->validate([
+            'department' => ['nullable','string','max:80'],
+            'product'    => ['nullable','string','max:80'],
+            'line'       => ['nullable','string','max:80'],
+        ]);
 
-        $department = $request->filled('department') ? trim($request->department) : null;
-        $product    = $request->filled('product') ? trim($request->product) : null;
-        $line       = $request->filled('line') ? trim($request->line) : null;
+        $department = $validated['department'] ?? null;
+        $product    = $validated['product'] ?? null;
+        $line       = $validated['line'] ?? null;
+
+        $deptLike = $this->escapeLike($department);
+        $prodLike = $this->escapeLike($product);
+        $lineLike = $this->escapeLike($line);
 
         $q = Sop::query()
-            ->whereBetween('created_at', [$from, $to])
+            // ->latestPerCode() // kalau mau latest only
+            ->when($department, fn($qq) => $qq->where('department','like',"%{$deptLike}%"))
+            ->when($product,    fn($qq) => $qq->where('product','like',"%{$prodLike}%"))
+            ->when($line,       fn($qq) => $qq->where('line','like',"%{$lineLike}%"))
             ->orderByDesc('created_at');
-
-        if ($department) $q->where('department','like',"%{$department}%");
-        if ($product)    $q->where('product','like',"%{$product}%");
-        if ($line)       $q->where('line','like',"%{$line}%");
 
         $sops = $q->get();
 
-        // === PDF jika package ada ===
         if (class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.sop_export_pdf', [
-                'sops' => $sops,
-                'from' => $from,
-                'to'   => $to,
+                'sops'       => $sops,
                 'department' => $department,
-                'product' => $product,
-                'line' => $line,
+                'product'    => $product,
+                'line'       => $line,
             ])->setPaper('a4','portrait');
 
-            $filename = "sop_export_{$from->format('Ymd')}_{$to->format('Ymd')}.pdf";
-            return $pdf->download($filename);
+            return $pdf->download("sop_export_alltime.pdf");
         }
 
-        // === Fallback CSV jika dompdf belum diinstall ===
-        $filename = "sop_export_{$from->format('Ymd')}_{$to->format('Ymd')}.csv";
+        // fallback CSV
+        $filename = "sop_export_alltime.csv";
         $headers = [
             "Content-Type"        => "text/csv",
             "Content-Disposition" => "attachment; filename={$filename}",
@@ -423,7 +464,9 @@ class ReportController extends Controller
                     $s->line ?? '-',
                     $s->version ?? '-',
                     $s->status ?? '-',
-                    Schema::hasColumn('sops','is_public') ? ((int)$s->is_public ? 'YES':'NO') : '-',
+                    Schema::hasColumn('sops','is_public')
+                        ? ((int)$s->is_public ? 'YES' : 'NO')
+                        : '-',
                 ]);
             }
 
@@ -434,14 +477,19 @@ class ReportController extends Controller
     }
 
     // =========================
-    // HELPER
+    // SECURITY / HELPERS
     // =========================
-    private function safeParseDate($value, $fallback)
+    private function authorizeReport(Request $request): void
     {
-        try {
-            return Carbon::parse($value);
-        } catch (\Throwable $e) {
-            return Carbon::parse($fallback);
-        }
+        $u = $request->user();
+        abort_unless($u && $u->isRole(['admin','produksi','qa','logistik']), 403);
+    }
+
+    private function escapeLike(?string $value): ?string
+    {
+        if ($value === null) return null;
+        $v = trim($value);
+        if ($v === '') return null;
+        return addcslashes($v, '%_\\');
     }
 }

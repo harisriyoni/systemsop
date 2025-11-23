@@ -5,25 +5,56 @@
 @section('content')
 @php
   $user = $user ?? auth()->user();
-  $photo = null;
+  /**
+     * FIX PHOTO LOGIC:
+     * - kalau avatar_path sudah URL (http/https) -> pakai langsung
+     * - kalau avatar_path path storage -> bersihkan dan bentuk URL:
+     *   {host}/storage/app/public/avatars/xxx.png  (sesuai kebiasaan hosting kamu)
+     * - fallback ke photo_url kalau ada
+     */
+    $photo = null;
 
-  if ($user) {
-      if (!empty($user->avatar_path)) {
-          $photo = \Illuminate\Support\Facades\Storage::disk('public')->url($user->avatar_path);
-      } elseif (!empty($user->photo_url)) {
-          $photo = $user->photo_url;
-      }
-  }
+    if ($user && $user->avatar_path) {
+        $p = $user->avatar_path;
 
-  $fmtDate = function($v, $withTime = false) {
-      if (!$v) return '-';
-      try {
-          $c = \Carbon\Carbon::parse($v);
-          return $withTime ? $c->format('d M Y H:i') : $c->format('d M Y');
-      } catch (\Throwable $e) {
-          return $v;
-      }
-  };
+        // Jika avatar_path sudah URL penuh → pakai saja
+        if (\Illuminate\Support\Str::startsWith($p, ['http://','https://','//'])) {
+            $photo = $p;
+        } else {
+            // Bersihkan path yang salah:
+            // bisa berupa:
+            // - "avatars/abc.png"
+            // - "storage/avatars/abc.png"
+            // - "storage/app/public/avatars/abc.png"
+            $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($p, '/'));
+
+            // Bangun URL full pakai host sekarang (local ataupun production)
+            $host = request()->getSchemeAndHttpHost(); 
+            // contoh: http://127.0.0.1:8000 atau https://darkred-giraffe-...hostingersite.com
+
+            // HOST kamu butuh /storage/app/public/...
+            $photo = $host . '/storage/app/public/' . $clean;
+        }
+    } elseif ($user && $user->photo_url) {
+        $photo = $user->photo_url;
+    }
+
+    // Helper format tanggal (INI YANG TADI HILANG)
+    $fmtDate = function ($v, $withTime = false) {
+        if (!$v) return '-';
+        try {
+            $c = \Carbon\Carbon::parse($v);
+            return $withTime
+                ? $c->format('d M Y H:i')
+                : $c->format('d M Y');
+        } catch (\Throwable $e) {
+            return $v;
+        }
+    };
+
+    // kalau di model ada relation creator/updater
+    $creatorName = optional($user->creator)->name ?? ($user->created_by ?? '-');
+    $updaterName = optional($user->updater)->name ?? ($user->updated_by ?? '-');
 @endphp
 
 <div class="max-w-4xl mx-auto space-y-5">

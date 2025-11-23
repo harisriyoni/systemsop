@@ -4,59 +4,60 @@
 
 @section('content')
 @php
-  // --- Normalisasi photos biar aman ---
+  // --- Normalisasi photos biar aman (local + hostinger) ---
   $rawPhotos = $sop->photos ?? [];
-  if (is_string($rawPhotos)) {
+if (is_string($rawPhotos)) {
     $rawPhotos = json_decode($rawPhotos, true) ?: [];
-  }
+}
 
-  $photos = [];
-  foreach ($rawPhotos as $p) {
+$photos = [];
+
+foreach ($rawPhotos as $p) {
+
+    // Ambil path + desc
     if (is_string($p)) {
-      $path = $p;
-      $desc = null;
+        $path = $p;
+        $desc = null;
     } elseif (is_array($p)) {
-      $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
-      $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
+        $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
+        $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
     } else {
-      $path = null;
-      $desc = null;
+        continue;
     }
 
-    if (!$path) {
-      continue;
-    }
+    if (!$path) continue;
 
-    // Kalau sudah full URL, pakai langsung
-    $isHttp = \Illuminate\Support\Str::startsWith($path, ['http://','https://','//']);
-    if ($isHttp) {
-      $url = $path;
+    // Jika URL penuh → pakai langsung
+    if (Str::startsWith($path, ['http://', 'https://', '//'])) {
+        $url = $path;
     } else {
-      // BERSIHKAN prefix yang mungkin sudah ikut kebawa di DB
-      // contoh yang mungkin ada di DB:
-      // - "sops/abc.png"
-      // - "storage/sops/abc.png"
-      // - "storage/app/public/sops/abc.png"
-      $cleanPath = preg_replace('#^storage/(app/public/)?#', '', ltrim($path, '/'));
-      // sekarang $cleanPath harusnya "sops/abc.png"
+        // NORMALISASI: buang prefix yang salah
+        // contoh yang masuk DB:
+        // - sops/xxx.png
+        // - storage/sops/xxx.png
+        // - storage/app/public/sops/xxx.png
+        $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($path, '/'));
 
-      if (app()->environment('local')) {
-        // LOCAL: standar Laravel -> public/storage/sops/abc.png
-        $publicPath = 'storage/' . $cleanPath;
-      } else {
-        // PRODUCTION HOSTINGER: langsung tembak ke storage/app/public/...
-        $publicPath = 'storage/app/public/' . $cleanPath;
-      }
+        // BASE DOMAIN
+        $base = rtrim(config('app.url'), '/');
 
-      $url = asset($publicPath);
+        // === URL FINAL (SAMA PERSIS DENGAN AVATAR) ===
+        // Local
+        if (app()->environment('local')) {
+            $url = $base.'/storage/'.$clean;
+        } 
+        // Hostinger / production
+        else {
+            $url = $base.'/storage/app/public/'.$clean;
+        }
     }
 
     $photos[] = [
-      'path' => $path,
-      'url'  => $url,
-      'desc' => $desc,
+        'path' => $path,
+        'url'  => $url,
+        'desc' => $desc,
     ];
-  }
+}
 
   
 

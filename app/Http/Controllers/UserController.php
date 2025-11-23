@@ -12,12 +12,59 @@ class UserController extends Controller
     /**
      * Role list (single source of truth).
      */
-    private array $roles = ['admin','produksi','qa','logistik','operator'];
+    private array $roles = ['admin', 'produksi', 'qa', 'logistik', 'operator'];
 
     /**
      * Status list.
      */
-    private array $statuses = ['active','inactive','suspended'];
+    private array $statuses = ['active', 'inactive', 'suspended'];
+
+    /**
+     * Generate NIK / employee_code otomatis.
+     * Pola: {CompanyLetter}{SiteNumber}{YY}{MM}{Seq4}
+     * Contoh: A01 25 11 0007 -> A0125110007
+     */
+    private function makeNik(array $data): string
+    {
+        $companyLetter = 'X';
+        if (!empty($data['company'])) {
+            $companyLetter = strtoupper(substr(trim($data['company']), 0, 1));
+        }
+
+        $siteNumber = '00';
+        if (!empty($data['site'])) {
+            $digits = preg_replace('/\D/', '', $data['site']);
+            if ($digits !== '') {
+                $siteNumber = str_pad(substr($digits, 0, 2), 2, '0', STR_PAD_LEFT);
+            }
+        }
+
+        $yy = now()->format('y');
+        $mm = now()->format('m');
+
+        $candidates = User::query()
+            ->whereNotNull('employee_code')
+            ->whereRaw('LENGTH(employee_code) >= 11') // pola kita 11 char
+            ->whereRaw('SUBSTRING(employee_code, 4, 2) = ?', [$yy]) // POSISI TAHUN YANG BENAR
+            ->pluck('employee_code');
+
+        $maxSeq = 0;
+        foreach ($candidates as $nik) {
+            // 1 huruf + 2 digit site + 2 digit tahun + 2 digit bulan + 4 digit seq
+            if (preg_match('/^[A-Z]\d{2}\d{2}\d{2}\d{4}$/', $nik)) {
+                $seq = (int) substr($nik, -4);
+                if ($seq > $maxSeq) {
+                    $maxSeq = $seq;
+                }
+            }
+        }
+
+        $nextSeq = str_pad((string) ($maxSeq + 1), 4, '0', STR_PAD_LEFT);
+
+        return "{$companyLetter}{$siteNumber}{$yy}{$mm}{$nextSeq}";
+    }
+
+
 
     /**
      * List user + search/filter.
@@ -53,17 +100,17 @@ class UserController extends Controller
         // filter department
         if ($request->filled('department')) {
             $dept = trim($request->department);
-            $q->where('department','like',"%{$dept}%");
+            $q->where('department', 'like', "%{$dept}%");
         }
 
         // filter company/site optional
         if ($request->filled('company')) {
             $cmp = trim($request->company);
-            $q->where('company','like',"%{$cmp}%");
+            $q->where('company', 'like', "%{$cmp}%");
         }
         if ($request->filled('site')) {
             $site = trim($request->site);
-            $q->where('site','like',"%{$site}%");
+            $q->where('site', 'like', "%{$site}%");
         }
 
         $users = $q->paginate(12)->withQueryString();
@@ -71,8 +118,8 @@ class UserController extends Controller
         return view('users.index', [
             'users'   => $users,
             'roles'   => $this->roles,
-            'statuses'=> $this->statuses,
-            'filters' => $request->only(['q','role','status','department','company','site'])
+            'statuses' => $this->statuses,
+            'filters' => $request->only(['q', 'role', 'status', 'department', 'company', 'site'])
         ]);
     }
 
@@ -96,30 +143,36 @@ class UserController extends Controller
         $this->authorizeAdmin();
 
         $data = $request->validate([
-            'name'          => ['required','string','max:100'],
-            'username'      => ['nullable','string','max:60','unique:users,username'],
-            'email'         => ['required','email','max:255','unique:users,email'],
-            'password'      => ['required','string','min:6','max:255'],
+            'name'          => ['required', 'string', 'max:100'],
+            'username'      => ['nullable', 'string', 'max:60', 'unique:users,username'],
+            'email'         => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password'      => ['required', 'string', 'min:6', 'max:255'],
 
-            'employee_code' => ['nullable','string','max:50'],
-            'phone'         => ['nullable','string','max:30'],
-            'company'       => ['nullable','string','max:120'],
-            'department'    => ['nullable','string','max:120'],
-            'position'      => ['nullable','string','max:120'],
-            'site'          => ['nullable','string','max:120'],
-            'join_date'     => ['nullable','date'],
+            'employee_code' => ['nullable', 'string', 'max:50'],
+            'phone'         => ['nullable', 'string', 'max:30'],
+            'company'       => ['nullable', 'string', 'max:120'],
+            'department'    => ['nullable', 'string', 'max:120'],
+            'position'      => ['nullable', 'string', 'max:120'],
+            'site'          => ['nullable', 'string', 'max:120'],
+            'join_date'     => ['nullable', 'date'],
 
             'role'          => ['required', Rule::in($this->roles)],
             'status'        => ['required', Rule::in($this->statuses)],
 
-            'notes'         => ['nullable','string'],
-            'avatar_path'   => ['nullable','string','max:255'], // kalau admin isi path manual
+            'notes'         => ['nullable', 'string'],
+            'avatar_path'   => ['nullable', 'string', 'max:255'], // kalau admin isi path manual
         ], [
             'role.in'   => 'Role tidak valid.',
             'status.in' => 'Status tidak valid.',
         ]);
 
+        // Hash password
         $data['password'] = Hash::make($data['password']);
+
+        // === Generate NIK otomatis kalau belum diisi manual ===
+        if (empty($data['employee_code'])) {
+            $data['employee_code'] = $this->makeNik($data);
+        }
 
         // audit
         $data['created_by'] = auth()->id();
@@ -131,6 +184,7 @@ class UserController extends Controller
             ->route('users.index')
             ->with('success', 'User berhasil dibuat.');
     }
+
 
     /**
      * Form edit user.
@@ -154,24 +208,24 @@ class UserController extends Controller
         $this->authorizeAdmin();
 
         $data = $request->validate([
-            'name'          => ['required','string','max:100'],
-            'username'      => ['nullable','string','max:60', Rule::unique('users','username')->ignore($user->id)],
-            'email'         => ['required','email','max:255', Rule::unique('users','email')->ignore($user->id)],
-            'password'      => ['nullable','string','min:6','max:255'],
+            'name'          => ['required', 'string', 'max:100'],
+            'username'      => ['nullable', 'string', 'max:60', Rule::unique('users', 'username')->ignore($user->id)],
+            'email'         => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'password'      => ['nullable', 'string', 'min:6', 'max:255'],
 
-            'employee_code' => ['nullable','string','max:50'],
-            'phone'         => ['nullable','string','max:30'],
-            'company'       => ['nullable','string','max:120'],
-            'department'    => ['nullable','string','max:120'],
-            'position'      => ['nullable','string','max:120'],
-            'site'          => ['nullable','string','max:120'],
-            'join_date'     => ['nullable','date'],
+            'employee_code' => ['nullable', 'string', 'max:50'],
+            'phone'         => ['nullable', 'string', 'max:30'],
+            'company'       => ['nullable', 'string', 'max:120'],
+            'department'    => ['nullable', 'string', 'max:120'],
+            'position'      => ['nullable', 'string', 'max:120'],
+            'site'          => ['nullable', 'string', 'max:120'],
+            'join_date'     => ['nullable', 'date'],
 
             'role'          => ['required', Rule::in($this->roles)],
             'status'        => ['required', Rule::in($this->statuses)],
 
-            'notes'         => ['nullable','string'],
-            'avatar_path'   => ['nullable','string','max:255'],
+            'notes'         => ['nullable', 'string'],
+            'avatar_path'   => ['nullable', 'string', 'max:255'],
         ], [
             'role.in'   => 'Role tidak valid.',
             'status.in' => 'Status tidak valid.',
@@ -179,15 +233,15 @@ class UserController extends Controller
 
         // safety: jangan bikin admin terakhir jadi non-admin
         if ($user->role === 'admin' && $data['role'] !== 'admin') {
-            $adminCount = User::where('role','admin')->count();
+            $adminCount = User::where('role', 'admin')->count();
             if ($adminCount <= 1) {
                 return back()->with('error', 'Tidak bisa mengubah role admin terakhir.');
             }
         }
 
         // safety: jangan bikin admin terakhir jadi inactive/suspended
-        if ($user->role === 'admin' && in_array($data['status'], ['inactive','suspended'], true)) {
-            $activeAdminCount = User::where('role','admin')->where('status','active')->count();
+        if ($user->role === 'admin' && in_array($data['status'], ['inactive', 'suspended'], true)) {
+            $activeAdminCount = User::where('role', 'admin')->where('status', 'active')->count();
             if ($activeAdminCount <= 1) {
                 return back()->with('error', 'Tidak bisa menonaktifkan admin terakhir.');
             }
@@ -218,7 +272,7 @@ class UserController extends Controller
         $this->authorizeAdmin();
 
         $data = $request->validate([
-            'password' => ['required','string','min:6','max:255'],
+            'password' => ['required', 'string', 'min:6', 'max:255'],
         ]);
 
         $user->password = Hash::make($data['password']);
@@ -238,7 +292,7 @@ class UserController extends Controller
 
         // safety: jangan matikan admin terakhir
         if ($user->role === 'admin' && $user->status === 'active') {
-            $activeAdminCount = User::where('role','admin')->where('status','active')->count();
+            $activeAdminCount = User::where('role', 'admin')->where('status', 'active')->count();
             if ($activeAdminCount <= 1) {
                 return back()->with('error', 'Tidak bisa menonaktifkan admin terakhir.');
             }
@@ -265,7 +319,7 @@ class UserController extends Controller
 
         // safety: jangan hapus admin terakhir
         if ($user->role === 'admin') {
-            $adminCount = User::where('role','admin')->count();
+            $adminCount = User::where('role', 'admin')->count();
             if ($adminCount <= 1) {
                 return back()->with('error', 'Tidak bisa menghapus admin terakhir.');
             }
