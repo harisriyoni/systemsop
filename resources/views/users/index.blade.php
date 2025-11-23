@@ -17,20 +17,29 @@
 <div class="max-w-7xl mx-auto space-y-4">
 
   {{-- ================= HEADER CARD ================= --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm p-5">
+  <div class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm p-5">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-      <div>
-        <h2 class="text-base font-semibold text-slate-900">Manajemen Akses User</h2>
-        <p class="text-xs text-slate-500">
-          Menampilkan {{ $users->count() }} dari {{ $users->total() }} user
-        </p>
+      <div class="flex items-start gap-3">
+        <div class="h-10 w-10 rounded-2xl bg-[#05727d]/10 text-[#05727d] grid place-items-center shrink-0">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20h6v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2h6"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M23 7a4 4 0 01-7.75 1.25"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">Manajemen Akses User</h2>
+          <p class="text-xs text-slate-500">
+            Menampilkan {{ $users->count() }} dari {{ $users->total() }} user
+          </p>
+        </div>
       </div>
 
       {{-- routes kamu: users.create --}}
       @if(Route::has('users.create'))
         <a href="{{ route('users.create') }}"
            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                  bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold
+                  bg-[#05727d] hover:bg-[#04616a] text-white text-xs font-semibold
                   shadow-sm transition">
           <span class="text-lg leading-none">+</span>
           Tambah User
@@ -41,7 +50,7 @@
     {{-- ================= FILTER / SEARCH ================= --}}
     @if(Route::has('users.index'))
     <form method="GET" action="{{ route('users.index') }}"
-          class="mt-4 bg-blue-50/60 border border-blue-100 rounded-xl p-3">
+          class="mt-4 bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-3">
       <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
 
         <div>
@@ -49,14 +58,14 @@
           <input type="text" name="q" value="{{ $q }}"
                  placeholder="Cari nama / email..."
                  class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                        focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                        focus:ring-4 focus:ring-[#05727d]/15 focus:border-[#05727d] outline-none">
         </div>
 
         <div>
           <label class="block mb-1 text-slate-600">Role</label>
           <select name="role"
                   class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                         focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                         focus:ring-4 focus:ring-[#05727d]/15 focus:border-[#05727d] outline-none">
             <option value="">Semua Role</option>
             @foreach($roles as $r)
               <option value="{{ $r }}" {{ $roleF==$r ? 'selected':'' }}>
@@ -70,7 +79,7 @@
           <label class="block mb-1 text-slate-600">Status</label>
           <select name="status"
                   class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2
-                         focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none">
+                         focus:ring-4 focus:ring-[#05727d]/15 focus:border-[#05727d] outline-none">
             <option value="">Semua</option>
             <option value="active" {{ $status=='active'?'selected':'' }}>Aktif</option>
             <option value="inactive" {{ $status=='inactive'?'selected':'' }}>Nonaktif</option>
@@ -80,7 +89,7 @@
         <div class="md:col-span-2 flex items-end justify-end gap-2">
           <button
             class="inline-flex items-center justify-center px-4 py-2 rounded-lg
-                   bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition">
+                   bg-[#05727d] hover:bg-[#04616a] text-white font-semibold text-xs transition">
             Terapkan
           </button>
           <a href="{{ route('users.index') }}"
@@ -98,10 +107,10 @@
 
 
   {{-- ================= TABLE ================= --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
+  <div class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
       <table class="min-w-full text-xs bg-white">
-        <thead class="bg-blue-50 text-blue-700 text-[11px] uppercase tracking-wider sticky top-0 z-10">
+        <thead class="bg-[#05727d]/5 text-[#05727d] text-[11px] uppercase tracking-wider sticky top-0 z-10">
           <tr>
             <th class="px-4 py-3 text-left whitespace-nowrap">Nama</th>
             <th class="px-4 py-3 text-left whitespace-nowrap">Email</th>
@@ -112,23 +121,24 @@
           </tr>
         </thead>
 
-        <tbody class="divide-y divide-blue-50">
+        <tbody class="divide-y divide-[#05727d]/10">
           @forelse($users as $u)
             @php
+              // role chip colors versi brand
               $roleMap = [
-                'admin'    => 'bg-blue-600 text-white border-blue-600',
-                'produksi' => 'bg-sky-50 text-sky-700 border-sky-200',
+                'admin'    => 'bg-[#05727d] text-white border-[#05727d]',
+                'produksi' => 'bg-[#05727d]/10 text-[#05727d] border-[#05727d]/25',
                 'qa'       => 'bg-amber-50 text-amber-700 border-amber-200',
                 'logistik' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
                 'operator' => 'bg-slate-50 text-slate-700 border-slate-200',
               ];
               $roleCls = $roleMap[$u->role ?? ''] ?? 'bg-slate-50 text-slate-700 border-slate-200';
 
-              // routes kamu pakai toggleActive => kita asumsikan kolom boolean is_active
+              // routes kamu pakai toggleActive => asumsi boolean is_active
               $isActive = $u->is_active ?? $u->active ?? null;
             @endphp
 
-            <tr class="hover:bg-blue-50/40 transition">
+            <tr class="hover:bg-[#05727d]/[0.04] transition">
               {{-- NAMA --}}
               <td class="px-4 py-3">
                 <div class="font-semibold text-slate-900">{{ $u->name ?? '-' }}</div>
@@ -175,17 +185,17 @@
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="flex flex-wrap items-center gap-2">
 
-                  {{-- routes kamu: users.edit --}}
+                  {{-- users.edit --}}
                   @if(Route::has('users.edit'))
                     <a href="{{ route('users.edit', $u) }}"
                        class="inline-flex items-center px-3 py-1.5 rounded-lg
-                              bg-white border border-blue-200 text-blue-700
-                              hover:bg-blue-50 font-semibold text-[11px] transition">
+                              bg-white border border-[#05727d]/30 text-[#05727d]
+                              hover:bg-[#05727d]/5 font-semibold text-[11px] transition">
                       Edit
                     </a>
                   @endif
 
-                  {{-- routes kamu: users.reset_password (POST) --}}
+                  {{-- users.reset_password (POST) --}}
                   @if(Route::has('users.reset_password') && auth()->user()->id !== $u->id)
                     <form method="POST" action="{{ route('users.reset_password', $u) }}"
                           onsubmit="return confirm('Reset password user ini? Password akan diganti default.');">
@@ -199,7 +209,7 @@
                     </form>
                   @endif
 
-                  {{-- routes kamu: users.toggle_active (POST) --}}
+                  {{-- users.toggle_active (POST) --}}
                   @if(Route::has('users.toggle_active') && auth()->user()->id !== $u->id && !is_null($isActive))
                     <form method="POST" action="{{ route('users.toggle_active', $u) }}"
                           onsubmit="return confirm('Ubah status aktif/nonaktif user ini?');">
@@ -215,7 +225,7 @@
                     </form>
                   @endif
 
-                  {{-- routes kamu: users.destroy --}}
+                  {{-- users.destroy --}}
                   @if(Route::has('users.destroy') && auth()->user()->id !== $u->id)
                     <form method="POST" action="{{ route('users.destroy', $u) }}"
                           onsubmit="return confirm('Yakin hapus user ini?')">
@@ -236,7 +246,7 @@
           @empty
             <tr>
               <td colspan="6" class="px-4 py-12 text-center">
-                <div class="mx-auto w-14 h-14 rounded-2xl bg-blue-50 grid place-items-center text-blue-700 mb-3">
+                <div class="mx-auto w-14 h-14 rounded-2xl bg-[#05727d]/10 grid place-items-center text-[#05727d] mb-3">
                   <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20h6v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2h6"/>
                     <circle cx="9" cy="7" r="4"/>
@@ -253,7 +263,7 @@
     </div>
 
     {{-- PAGINATION --}}
-    <div class="px-4 py-3 border-t border-blue-100">
+    <div class="px-4 py-4 bg-white border-t border-[#05727d]/15">
       {{ $users->appends(request()->query())->links() }}
     </div>
   </div>
