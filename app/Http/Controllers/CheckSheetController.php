@@ -7,16 +7,17 @@ use App\Models\CheckSheetSubmission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class CheckSheetController extends Controller
 {
     // =========================
-    // ROLE MATRIX (5 role)
+    // ROLE MATRIX
     // =========================
-    private array $rolesManage = ['admin','produksi','qa','logistik'];   // boleh bikin/edit/publish form
-    private array $rolesReview = ['admin','qa','logistik'];             // boleh approve/reject submission
-    private array $rolesViewSub = ['admin','produksi','qa','logistik']; // boleh lihat submissions
-    private array $rolesFill   = ['operator'];                          // yang boleh isi
+    private array $rolesManage  = ['admin','produksi','qa','logistik'];   // boleh bikin/edit/publish form
+    private array $rolesReview  = ['admin','qa','logistik'];             // boleh approve/reject submission
+    private array $rolesViewSub = ['admin','produksi','qa','logistik'];  // boleh lihat submissions
+    private array $rolesFill    = ['operator'];                          // yang boleh isi
 
     // =========================
     // LIST FORM
@@ -73,7 +74,7 @@ class CheckSheetController extends Controller
             'description' => ['nullable','string'],
             'fields'      => ['nullable','array'],
 
-            // penting: status boleh dari UI
+            // status boleh dari UI
             'status'      => ['nullable','in:draft,active'],
         ]);
 
@@ -221,7 +222,6 @@ class CheckSheetController extends Controller
             abort(404, 'Form tidak aktif.');
         }
 
-
         return view('check_sheets.fill', compact('checkSheet'));
     }
 
@@ -231,6 +231,8 @@ class CheckSheetController extends Controller
             abort(404, 'Form tidak aktif.');
         }
 
+        // kalau mau batasi hanya operator:
+        // abort_unless(auth()->user()->isRole($this->rolesFill), 403);
 
         $basic = $request->validate([
             'shift'  => ['required','string','max:50'],
@@ -246,7 +248,7 @@ class CheckSheetController extends Controller
         CheckSheetSubmission::create([
             'check_sheet_id' => $checkSheet->id,
             'operator_id'    => auth()->id(),
-            'status'         => 'under_review',   // masuk approval
+            'status'         => 'under_review',
             'data'           => $payload,
             'submitted_at'   => now(),
         ]);
@@ -303,8 +305,18 @@ class CheckSheetController extends Controller
     {
         $this->authorizeReview();
 
+        // normalize input biar anti salah value dari UI
+        $raw = $request->input('status');
+        $status = strtolower(trim((string) $raw));
+
+        // map sinonim UI -> nilai DB
+        if ($status === 'approve') $status = 'approved';
+        if ($status === 'reject')  $status = 'rejected';
+
+        $request->merge(['status' => $status]);
+
         $data = $request->validate([
-            'status' => ['required','in:under_review,approved,rejected'],
+            'status' => ['required', Rule::in(['under_review','approved','rejected'])],
         ], [
             'status.in' => 'Status tidak valid.',
         ]);

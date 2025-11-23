@@ -10,6 +10,9 @@
         "fields" => []
       ], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)
   );
+
+  // status valid sesuai controller
+  $st = old('status', $checkSheet->status);
 @endphp
 
 <div class="bg-slate-50">
@@ -47,7 +50,7 @@
       class="bg-white rounded-2xl ring-1 ring-slate-200 shadow-sm overflow-hidden"
     >
       @csrf
-      @method('PATCH') {{-- INI YANG BENER --}}
+      @method('PATCH')
 
       <div class="p-6 md:p-8 space-y-8">
 
@@ -60,17 +63,8 @@
             </span>
           </div>
 
-          <div class="grid md:grid-cols-3 gap-4">
-            <div class="md:col-span-1">
-              <label class="text-sm font-semibold text-slate-700">Kode</label>
-              <input name="code"
-                     value="{{ old('code', $checkSheet->code) }}"
-                     class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 focus:bg-white focus:border-[#05727d] focus:ring-[#05727d] transition"
-                     placeholder="CS-001">
-              @error('code') <div class="text-xs text-rose-600 mt-1">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="md:col-span-2">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
               <label class="text-sm font-semibold text-slate-700">Judul</label>
               <input name="title"
                      value="{{ old('title', $checkSheet->title) }}"
@@ -78,9 +72,7 @@
                      placeholder="Contoh Check Sheet Produksi">
               @error('title') <div class="text-xs text-rose-600 mt-1">{{ $message }}</div> @enderror
             </div>
-          </div>
 
-          <div class="grid md:grid-cols-3 gap-4">
             <div>
               <label class="text-sm font-semibold text-slate-700">Department</label>
               <input name="department"
@@ -89,29 +81,46 @@
                      placeholder="Produksi / HSE / QC">
               @error('department') <div class="text-xs text-rose-600 mt-1">{{ $message }}</div> @enderror
             </div>
+          </div>
+
+          <div class="grid md:grid-cols-3 gap-4">
+            <div>
+              <label class="text-sm font-semibold text-slate-700">Product</label>
+              <input name="product"
+                     value="{{ old('product', $checkSheet->product) }}"
+                     class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 focus:bg-white focus:border-[#05727d] focus:ring-[#05727d] transition"
+                     placeholder="Opsional">
+              @error('product') <div class="text-xs text-rose-600 mt-1">{{ $message }}</div> @enderror
+            </div>
 
             <div>
-              <label class="text-sm font-semibold text-slate-700">Status</label>
+              <label class="text-sm font-semibold text-slate-700">Line</label>
+              <input name="line"
+                     value="{{ old('line', $checkSheet->line) }}"
+                     class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 focus:bg-white focus:border-[#05727d] focus:ring-[#05727d] transition"
+                     placeholder="Opsional">
+              @error('line') <div class="text-xs text-rose-600 mt-1">{{ $message }}</div> @enderror
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-slate-700">Status Form</label>
               <select name="status"
                       class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 focus:bg-white focus:border-[#05727d] focus:ring-[#05727d] transition">
-                @php $st = old('status', $checkSheet->status); @endphp
-                <option value="draft" @selected($st==='draft')>Draft</option>
-                <option value="approved" @selected($st==='approved')>Approved</option>
+                <option value="draft"    @selected($st==='draft')>Draft</option>
+                <option value="active"   @selected($st==='active')>Active (Published)</option>
+                <option value="inactive" @selected($st==='inactive')>Inactive</option>
                 <option value="archived" @selected($st==='archived')>Archived</option>
               </select>
               @error('status') <div class="text-xs text-rose-600 mt-1">{{ $message }}</div> @enderror
             </div>
+          </div>
 
-            <div>
-              <label class="text-sm font-semibold text-slate-700">Aktif?</label>
-              @php $ac = old('active', (int)$checkSheet->active); @endphp
-              <select name="active"
-                      class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 focus:bg-white focus:border-[#05727d] focus:ring-[#05727d] transition">
-                <option value="1" @selected($ac==1)>Aktif</option>
-                <option value="0" @selected($ac==0)>Nonaktif</option>
-              </select>
-              @error('active') <div class="text-xs text-rose-600 mt-1">{{ $message }}</div> @enderror
-            </div>
+          <div>
+            <label class="text-sm font-semibold text-slate-700">Deskripsi</label>
+            <textarea name="description" rows="3"
+                      class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 focus:bg-white focus:border-[#05727d] focus:ring-[#05727d] transition"
+                      placeholder="Opsional">{{ old('description', $checkSheet->description) }}</textarea>
+            @error('description') <div class="text-xs text-rose-600 mt-1">{{ $message }}</div> @enderror
           </div>
         </div>
 
