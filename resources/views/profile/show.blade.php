@@ -5,20 +5,45 @@
 @section('content')
 @php
   $user = $user ?? auth()->user();
-
-  /**
+/**
    * FIX PHOTO LOGIC:
    * - kalau avatar_path sudah URL (http/https) -> pakai langsung
-   * - kalau avatar_path path storage -> Storage::disk('public')->url()
+   * - kalau avatar_path path storage -> normalisasi lalu buat URL beda untuk local/production
    * - fallback ke photo_url (kalau masih ada)
    */
   $photo = null;
 
   if ($user) {
       if (!empty($user->avatar_path)) {
-          // avatar_path di DB harus bentuk: "avatars/namafile.png"
-          $photo = asset('storage/' . ltrim($user->avatar_path, '/'));
+          $p = $user->avatar_path;
+
+          // Kalau sudah full URL, pakai apa adanya
+          $isHttp = \Illuminate\Support\Str::startsWith($p, ['http://', 'https://', '//']);
+          if ($isHttp) {
+              $photo = $p;
+          } else {
+              // BERSIHKAN prefix yang sering bikin kacau:
+              // bisa jadi:
+              // - "avatars/abc.png"
+              // - "storage/avatars/abc.png"
+              // - "storage/app/public/avatars/abc.png"
+              $cleanPath = preg_replace('#^storage/(app/public/)?#', '', ltrim($p, '/'));
+              // sekarang idealnya: "avatars/abc.png"
+
+              if (app()->environment('local')) {
+                  // Standar Laravel (public/storage -> storage/app/public)
+                  // → URL: /storage/avatars/abc.png
+                  $publicPath = 'storage/' . $cleanPath;
+              } else {
+                  // Hosting kamu yang butuh /storage/app/public/...
+                  // → URL: /storage/app/public/avatars/abc.png
+                  $publicPath = 'storage/app/public/' . $cleanPath;
+              }
+
+              $photo = asset($publicPath);
+          }
       } elseif (!empty($user->photo_url)) {
+          // fallback lama
           $photo = $user->photo_url;
       }
   }
