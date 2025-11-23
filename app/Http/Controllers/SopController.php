@@ -466,28 +466,101 @@ class SopController extends Controller
     // ✅ JSON SOP (BUAT IMPORT KE TEMPLATE)
     // terima ID atau CODE
     // ==========================
-    public function showJson($sop)
+         public function showJson(Sop $sop)
     {
-        // akses sama kaya lihat SOP internal
-        if (!auth()->user()->isRole(['admin', 'produksi', 'qa', 'logistik'])) {
-            abort(403, 'Tidak punya akses SOP.');
+        // ==== Normalisasi JSON field ====
+        $formSchema    = $sop->form_schema ?? [];
+        $builderSchema = $sop->builder_schema ?? [];
+        $meta          = $sop->meta ?? [];
+
+        if (is_string($formSchema)) {
+            $formSchema = json_decode($formSchema, true) ?: [];
+        }
+        if (is_string($builderSchema)) {
+            $builderSchema = json_decode($builderSchema, true) ?: [];
+        }
+        if (is_string($meta)) {
+            $meta = json_decode($meta, true) ?: [];
         }
 
-        $model = Sop::query()
-            ->where('id', $sop)
-            ->orWhere('code', $sop)
-            ->firstOrFail();
+        // ==== Normalisasi foto (LOGIC SAMA DENGAN VIEW DETAIL SOP) ====
+        $rawPhotos = $sop->photos ?? [];
+        if (is_string($rawPhotos)) {
+            $rawPhotos = json_decode($rawPhotos, true) ?: [];
+        }
+
+        $photos = [];
+        foreach ($rawPhotos as $p) {
+            if (is_string($p)) {
+                $path = $p;
+                $desc = null;
+            } elseif (is_array($p)) {
+                $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
+                $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
+            } else {
+                $path = null;
+                $desc = null;
+            }
+
+            if (!$path) {
+                continue;
+            }
+
+            // Kalau sudah URL full, pakai langsung
+            $isHttp = \Illuminate\Support\Str::startsWith($path, ['http://','https://','//']);
+            if ($isHttp) {
+                $url = $path;
+            } else {
+                // Bersihkan prefix yang mungkin ikut ke DB
+                $cleanPath = preg_replace('#^storage/(app/public/)?#', '', ltrim($path, '/'));
+
+                if (app()->environment('local')) {
+                    // LOCAL: standar Laravel -> public/storage/...
+                    $publicPath = 'storage/'.$cleanPath;
+                } else {
+                    // PRODUKSI (Hostinger dsb): storage/app/public/...
+                    $publicPath = 'storage/app/public/'.$cleanPath;
+                }
+
+                $url = asset($publicPath);
+            }
+
+            $photos[] = [
+                'path' => $path,
+                'url'  => $url,
+                'desc' => $desc,
+            ];
+        }
+
+        // ==== Atribut mentah SOP (untuk disimpan ke meta._sop_attributes) ====
+        $attributes = $sop->getAttributes();
+
+        // Biar di _sop_attributes versi JSON-nya sudah didecode
+        $attributes['form_schema']    = $formSchema;
+        $attributes['builder_schema'] = $builderSchema;
+        $attributes['meta']           = $meta;
+        $attributes['photos_normalized'] = $photos;
 
         return response()->json([
-            'id'             => $model->id,
-            'code'           => $model->code,
-            'title'          => $model->title,
-            'department'     => $model->department,
-            'product'        => $model->product,
-            'line'           => $model->line,
-            'form_schema'    => $model->form_schema ?? [],
-            'builder_schema' => $model->builder_schema ?? [],
-            'meta'           => $model->meta ?? [],
+            'id'         => $sop->id,
+            'code'       => $sop->code,
+            'title'      => $sop->title,
+            'department' => $sop->department,
+            'product'    => $sop->product,
+            'line'       => $sop->line,
+            'version'    => $sop->version ?? 1,
+            'status'     => $sop->status ?? 'draft',
+
+            // JSON field utama
+            'form_schema'    => $formSchema,
+            'builder_schema' => $builderSchema,
+            'meta'           => $meta,
+
+            // Foto yang sudah punya URL siap pakai (INI yang dipakai Canvas)
+            'photos'      => $photos,
+
+            // Semua atribut mentah (plus yang sudah didecode) buat disimpan ke meta._sop_attributes
+            '_attributes' => $attributes,
         ]);
     }
 

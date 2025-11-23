@@ -45,30 +45,27 @@ class SopTemplateController extends Controller
     // ==========================
     // CREATE
     // ==========================
-    public function create()
-    {
-        $this->authorizeManage();
+   public function create()
+{
+    $this->authorizeManage();
 
-        /**
-         * ✅ Ambil list SOP buat dropdown import di halaman create template
-         * Kalau mau cuma approved:
-         * ->where('status','approved')
-         */
-        $sops = Sop::query()
-            ->orderByDesc('updated_at')
-            ->limit(300)
-            ->get(['id','code','title','department','product','line','status','updated_at']);
+    $sops = Sop::query()
+        ->orderByDesc('updated_at')
+        ->limit(300)
+        ->get(['id','code','title','department','product','line','status','updated_at']);
 
-        return view('sop_templates.create', [
-            'template' => new SopTemplate([
-                'is_active'      => true,
-                'form_schema'    => [],
-                'builder_schema' => [],
-                'meta'           => ['extra_fields' => []],
-            ]),
-            'sops' => $sops, // ✅ dikirim ke blade
-        ]);
-    }
+    return view('sop_templates.create', [
+        'template' => new SopTemplate([
+            'is_active'      => true,
+            'form_schema'    => [],
+            'builder_schema' => [],
+            'meta'           => ['extra_fields' => []],
+            'canvas'         => [ 'page' => [], 'blocks' => [] ], // <— NEW
+        ]),
+        'sops' => $sops,
+    ]);
+}
+
 
     public function store(Request $request)
     {
@@ -93,7 +90,20 @@ class SopTemplateController extends Controller
     {
         $this->authorizeManage();
 
-        return view('sop_templates.edit', compact('template'));
+        /**
+         * Supaya editing template juga bisa import dari SOP,
+         * kalau mau: load lagi $sops seperti di create()
+         * (optional).
+         */
+        $sops = Sop::query()
+            ->orderByDesc('updated_at')
+            ->limit(300)
+            ->get(['id','code','title','department','product','line','status','updated_at']);
+
+        return view('sop_templates.edit', [
+            'template' => $template,
+            'sops'     => $sops,
+        ]);
     }
 
     public function update(Request $request, SopTemplate $template)
@@ -128,21 +138,52 @@ class SopTemplateController extends Controller
     }
 
     // ==========================
-    // JSON TEMPLATE (BUAT LOAD KE CREATE SOP)
+    // JSON SOP (BUAT IMPORT KE TEMPLATE)
     // ==========================
-    public function showJson(SopTemplate $template)
+    public function showJson($id)
     {
-        $this->authorizeManage();
+        $sop = Sop::query()
+            ->with(['creator', 'approvers.user'])
+            ->findOrFail($id);
+
+        $attributes = $sop->getAttributes();
+
+        $sop->form_schema    = $sop->form_schema ?? [];
+        $sop->builder_schema = $sop->builder_schema ?? [];
+        $sop->meta           = $sop->meta ?? [];
+
+        $attributes['form_schema']    = $sop->form_schema;
+        $attributes['builder_schema'] = $sop->builder_schema;
+        $attributes['meta']           = $sop->meta;
 
         return response()->json([
-            'id'             => $template->id,
-            'name'           => $template->name,
-            'department'     => $template->department,
-            'product'        => $template->product,
-            'line'           => $template->line,
-            'form_schema'    => $template->form_schema ?? [],
-            'builder_schema' => $template->builder_schema ?? [],
-            'meta'           => $template->meta ?? [],
+            'id'             => $sop->id,
+            'code'           => $sop->code,
+            'title'          => $sop->title,
+            'department'     => $sop->department,
+            'product'        => $sop->product,
+            'line'           => $sop->line,
+            'version'        => $sop->version ?? 1,
+            'revision'       => $sop->revision ?? 1,
+            'status'         => $sop->status ?? 'draft',
+            'is_active'      => $sop->is_active ?? false,
+            'created_at'     => $sop->created_at,
+            'updated_at'     => $sop->updated_at,
+            'created_by'     => $sop->creator->name ?? null,
+
+            'approvers'      => $sop->approvers->map(fn($a) => [
+                'id'          => $a->id,
+                'role'        => $a->role,
+                'name'        => $a->user->name ?? null,
+                'status'      => $a->status,
+                'approved_at' => $a->approved_at,
+            ])->values(),
+
+            'form_schema'    => $sop->form_schema,
+            'builder_schema' => $sop->builder_schema,
+            'meta'           => $sop->meta,
+
+            '_attributes'    => $attributes,
         ]);
     }
 
@@ -153,16 +194,14 @@ class SopTemplateController extends Controller
     {
         $this->authorizeManage();
 
-        // pastiin schema ada bentuk array
         $template->form_schema    = $template->form_schema ?? [];
         $template->builder_schema = $template->builder_schema ?? [];
         $template->meta           = $template->meta ?? [];
+        $template->canvas         = $template->canvas ?? []; // optional
 
-        // generate PDF dari blade
         $pdf = \PDF::loadView('sop_templates.show_pdf', compact('template'))
             ->setPaper('a4');
 
-        // STREAM biar bisa refresh terus & gak ke-cache
         return response($pdf->stream("template-{$template->code}.pdf"))
             ->header('Content-Type', 'application/pdf')
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
@@ -173,45 +212,46 @@ class SopTemplateController extends Controller
     // ==========================
     // VALIDATION
     // ==========================
-    private function validatePayload(Request $request, ?SopTemplate $template = null)
-    {
-        $rules = [
-            'name'        => ['required', 'string', 'max:150'],
-            'code'        => ['nullable', 'string', 'max:50'],
-            'department'  => ['nullable', 'string', 'max:100'],
-            'product'     => ['nullable', 'string', 'max:100'],
-            'line'        => ['nullable', 'string', 'max:100'],
+   private function validatePayload(Request $request, ?SopTemplate $template = null)
+{
+    $rules = [
+        'name'        => ['required', 'string', 'max:150'],
+        'code'        => ['nullable', 'string', 'max:50'],
+        'department'  => ['nullable', 'string', 'max:100'],
+        'product'     => ['nullable', 'string', 'max:100'],
+        'line'        => ['nullable', 'string', 'max:100'],
 
-            // JSON string dari textarea
-            'form_schema'    => ['nullable', 'string'],
-            'builder_schema' => ['nullable', 'string'],
-            'meta'           => ['nullable', 'string'],
+        // JSON string dari textarea / hidden input
+        'form_schema'    => ['nullable', 'string'],
+        'builder_schema' => ['nullable', 'string'],
+        'meta'           => ['nullable', 'string'],
+        'canvas'         => ['nullable', 'string'], // <— NEW
 
-            'is_active'   => ['nullable', 'boolean'],
-        ];
+        'is_active'      => ['nullable', 'boolean'],
+    ];
 
-        // code unique kalau diisi
-        if ($request->filled('code')) {
-            $rules['code'][] = Rule::unique('sop_templates', 'code')
-                ->ignore($template?->id);
-        }
-
-        $validated = $request->validate($rules);
-
-        // decode JSON
-        foreach (['form_schema', 'builder_schema', 'meta'] as $jsonKey) {
-            if (!empty($validated[$jsonKey] ?? null)) {
-                $decoded = json_decode($validated[$jsonKey], true);
-                $validated[$jsonKey] = is_array($decoded) ? $decoded : null;
-            } else {
-                $validated[$jsonKey] = null;
-            }
-        }
-
-        $validated['is_active'] = $request->boolean('is_active');
-
-        return $validated;
+    if ($request->filled('code')) {
+        $rules['code'][] = Rule::unique('sop_templates', 'code')
+            ->ignore($template?->id);
     }
+
+    $validated = $request->validate($rules);
+
+    // decode JSON → array/null
+    foreach (['form_schema', 'builder_schema', 'meta', 'canvas'] as $jsonKey) { // <— canvas ikut
+        if (!empty($validated[$jsonKey] ?? null)) {
+            $decoded = json_decode($validated[$jsonKey], true);
+            $validated[$jsonKey] = is_array($decoded) ? $decoded : null;
+        } else {
+            $validated[$jsonKey] = null;
+        }
+    }
+
+    $validated['is_active'] = $request->boolean('is_active');
+
+    return $validated;
+}
+
 
     private function authorizeManage()
     {
