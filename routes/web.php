@@ -234,14 +234,14 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:admin,produksi,qa,logistik')
         ->group(function () {
 
-        Route::get('/', [ReportController::class, 'index'])->name('index');
+            Route::get('/', [ReportController::class, 'index'])->name('index');
 
-        Route::get('/submissions/export', [ReportController::class, 'exportSubmissionsCsv'])
-            ->name('submissions.export');
+            Route::get('/submissions/export', [ReportController::class, 'exportSubmissionsCsv'])
+                ->name('submissions.export');
 
-        Route::get('/sop/export', [ReportController::class, 'exportSopPdf'])
-            ->name('sop.export');
-    });
+            Route::get('/sop/export', [ReportController::class, 'exportSopPdf'])
+                ->name('sop.export');
+        });
 
 
     // =========================
@@ -264,5 +264,34 @@ Route::middleware('auth')->group(function () {
 
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
     });
+    Route::prefix('templates')->name('templates.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\SopTemplateController::class, 'index'])
+            ->name('index')
+            ->middleware('role:admin,produksi');
 
+        Route::get('/create', [\App\Http\Controllers\SopTemplateController::class, 'create'])
+            ->name('create')
+            ->middleware('role:admin,produksi');
+
+        Route::post('/', [\App\Http\Controllers\SopTemplateController::class, 'store'])
+            ->name('store')
+            ->middleware('role:admin,produksi');
+
+        Route::get('/{template}/edit', [\App\Http\Controllers\SopTemplateController::class, 'edit'])
+            ->name('edit')
+            ->middleware('role:admin,produksi');
+
+        Route::match(['put', 'patch'], '/{template}', [\App\Http\Controllers\SopTemplateController::class, 'update'])
+            ->name('update')
+            ->middleware('role:admin,produksi');
+
+        Route::delete('/{template}', [\App\Http\Controllers\SopTemplateController::class, 'destroy'])
+            ->name('destroy')
+            ->middleware('role:admin,produksi');
+
+        // json loader
+        Route::get('/{template}/json', [\App\Http\Controllers\SopTemplateController::class, 'showJson'])
+            ->name('json')
+            ->middleware('role:admin,produksi');
+    });
 });

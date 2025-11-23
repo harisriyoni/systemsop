@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Sop;
+use App\Models\SopTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
@@ -48,10 +49,17 @@ class SopController extends Controller
     }
 
     // ==========================
-    // CREATE SOP
+    // CREATE SOP (WITH TEMPLATE PICK)
     // ==========================
-    public function create()
+    public function create(Request $request)
     {
+        // templates aktif
+        $templates = SopTemplate::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        // default schema core
         $defaultFormSchema = [
             ['key'=>'code','label'=>'Kode SOP','type'=>'text','required'=>true,'visible'=>true,'is_core'=>true],
             ['key'=>'title','label'=>'Judul SOP','type'=>'text','required'=>true,'visible'=>true,'is_core'=>true],
@@ -63,15 +71,28 @@ class SopController extends Controller
             ['key'=>'is_public','label'=>'Tersedia untuk Publik','type'=>'checkbox','required'=>false,'visible'=>true,'is_core'=>true],
             ['key'=>'pin','label'=>'PIN Akses (Opsional)','type'=>'text','required'=>false,'visible'=>true,'is_core'=>true],
 
-            // contoh field custom → masuk meta
             ['key'=>'meta.mesin','label'=>'Nama Mesin','type'=>'text','required'=>false,'visible'=>false,'is_core'=>false],
         ];
 
         $defaultBuilderSchema = [];
 
+        // kalau pilih template dari UI (query ?template_id=)
+        $selectedTemplate = null;
+        if ($request->filled('template_id')) {
+            $selectedTemplate = SopTemplate::find($request->template_id);
+        }
+
+        // prefill dari template
+        if ($selectedTemplate) {
+            $defaultFormSchema   = $selectedTemplate->form_schema ?: $defaultFormSchema;
+            $defaultBuilderSchema= $selectedTemplate->builder_schema ?: [];
+        }
+
         return view('sop.create', [
-            'formSchema'    => $defaultFormSchema,
-            'builderSchema' => $defaultBuilderSchema,
+            'formSchema'        => $defaultFormSchema,
+            'builderSchema'     => $defaultBuilderSchema,
+            'templates'         => $templates,
+            'selectedTemplate'  => $selectedTemplate,
         ]);
     }
 
@@ -87,8 +108,10 @@ class SopController extends Controller
         $extraFields = $extraFieldsJson ? json_decode($extraFieldsJson, true) : [];
         if (!is_array($extraFields)) $extraFields = [];
 
-        // 2) validasi core
+        // 2) validasi core + template_id
         $request->validate([
+            'template_id'    => ['nullable','integer','exists:sop_templates,id'],
+
             'code'           => ['required','string','max:50','unique:sops,code'],
             'title'          => ['required','string','max:255'],
             'department'     => ['required','string','max:100'],
@@ -108,10 +131,21 @@ class SopController extends Controller
 
         $coreFields = [
             'code','title','department','product','line',
-            'content','effective_from','effective_to','is_public','pin',
+            'content','effective_from','effective_to','is_public','pin','template_id'
         ];
         $data = $request->only($coreFields);
         $data['is_public'] = $request->boolean('is_public');
+
+        // 2b) kalau template dipilih → apply default2 dari template
+        if (!empty($data['template_id'])) {
+            $tpl = SopTemplate::find($data['template_id']);
+            if ($tpl) {
+                $data = $this->applyTemplateToData($data, $tpl);
+                if (empty($builderSchema)) {
+                    $builderSchema = $tpl->builder_schema ?: [];
+                }
+            }
+        }
 
         // 3) normalisasi extra_fields → meta
         $normalizedExtra = [];
@@ -132,7 +166,6 @@ class SopController extends Controller
         $meta = [
             'extra_fields'   => $normalizedExtra,
             'builder_schema' => $builderSchema,
-            // tempat history sederhana kalau mau push manual
             'logs'           => [],
         ];
 
@@ -162,7 +195,9 @@ class SopController extends Controller
     public function edit(Sop $sop)
     {
         $this->authorizeManage();
-        return view('sop.edit', compact('sop'));
+        $templates = SopTemplate::where('is_active', true)->orderBy('name')->get();
+
+        return view('sop.edit', compact('sop','templates'));
     }
 
     public function update(Request $request, Sop $sop)
@@ -179,9 +214,17 @@ class SopController extends Controller
         $extraFields = $extraFieldsJson ? json_decode($extraFieldsJson, true) : [];
         if (!is_array($extraFields)) $extraFields = [];
 
-        // validasi payload core
+        // validasi payload core + template_id
         $data = $this->validatePayload($request, $sop);
         $data['is_public'] = $request->boolean('is_public');
+
+        // apply template defaults kalau user ganti template di edit
+        if (!empty($data['template_id'])) {
+            $tpl = SopTemplate::find($data['template_id']);
+            if ($tpl) {
+                $data = $this->applyTemplateToData($data, $tpl);
+            }
+        }
 
         // normalisasi extra_fields → meta
         $normalizedExtra = [];
@@ -515,12 +558,10 @@ class SopController extends Controller
     // ==========================
     // VERSIONS / HISTORY (ALL)
     // ==========================
-    // route: GET /sop/versions
     public function versionsIndex(Request $request)
     {
         $this->authorizeView();
 
-        // ambil latest SOP per code
         $sub = Sop::query()
             ->selectRaw('code, MAX(version) as max_version')
             ->groupBy('code');
@@ -542,11 +583,9 @@ class SopController extends Controller
         }
 
         $latestSops = $query->paginate(15)->withQueryString();
-
         return view('sop.versions_index', compact('latestSops'));
     }
 
-    // route: GET /sop/history
     public function historyIndex(Request $request)
     {
         $this->authorizeView();
@@ -568,7 +607,6 @@ class SopController extends Controller
     // ==========================
     // VERSIONS / HISTORY (PER SOP)
     // ==========================
-    // route: GET /sop/{sop}/versions
     public function versions(Sop $sop)
     {
         $this->authorizeView();
@@ -580,12 +618,10 @@ class SopController extends Controller
         return view('sop.versions', compact('sop','versions'));
     }
 
-    // route: GET /sop/{sop}/history
     public function history(Sop $sop)
     {
         $this->authorizeView();
 
-        // fallback: pakai meta.logs kalau belum ada table sop_logs
         $meta = is_array($sop->meta) ? $sop->meta : (json_decode($sop->meta, true) ?: []);
         $logs = $meta['logs'] ?? [];
 
@@ -598,6 +634,8 @@ class SopController extends Controller
     private function validatePayload(Request $request, ?Sop $sop = null)
     {
         $rules = [
+            'template_id'    => ['nullable','integer','exists:sop_templates,id'],
+
             'code'           => ['required','string','max:50'],
             'title'          => ['required','string','max:255'],
             'department'     => ['required','string','max:100'],
@@ -619,8 +657,6 @@ class SopController extends Controller
             'is_public'      => ['nullable','boolean'],
         ];
 
-        // kalau update SOP belum approved (same record),
-        // cegah bentrok jika user ubah CODE tapi versi sama.
         if ($sop && $sop->status !== 'approved') {
             $rules['code'] = [
                 'required','string','max:50',
@@ -637,7 +673,6 @@ class SopController extends Controller
             'photos.*.max' => 'Ukuran foto maksimal 4MB.',
         ]);
 
-        // decode builder_schema JSON → array
         if (!empty($validated['builder_schema'] ?? null)) {
             $decoded = json_decode($validated['builder_schema'], true);
             $validated['builder_schema'] = is_array($decoded) ? $decoded : null;
@@ -646,6 +681,27 @@ class SopController extends Controller
         }
 
         return $validated;
+    }
+
+    private function applyTemplateToData(array $data, SopTemplate $tpl): array
+    {
+        // kalau user kosongin department/product/line/content,
+        // kita isi default dari template
+        foreach (['department','product','line','content'] as $f) {
+            if (empty($data[$f]) && !empty($tpl->{$f})) {
+                $data[$f] = $tpl->{$f};
+            }
+        }
+
+        // default public/pin dari template jika user ga set
+        if (!array_key_exists('is_public', $data) || is_null($data['is_public'])) {
+            $data['is_public'] = (bool)($tpl->is_public_default ?? false);
+        }
+        if (empty($data['pin']) && !empty($tpl->pin_default)) {
+            $data['pin'] = $tpl->pin_default;
+        }
+
+        return $data;
     }
 
     private function handlePhotosUpload(Request $request): array
@@ -676,7 +732,6 @@ class SopController extends Controller
         }
     }
 
-    // view biasa (auth doang)
     private function authorizeView()
     {
         if (!auth()->check()) {

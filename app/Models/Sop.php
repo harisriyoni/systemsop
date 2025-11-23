@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Support\Facades\Route;
 
 class Sop extends Model
 {
@@ -12,7 +13,7 @@ class Sop extends Model
 
     protected $fillable = [
         'code',
-        'version', // ✅ penting untuk versioning
+        'version', // penting untuk versioning
 
         'title',
         'department',
@@ -54,10 +55,14 @@ class Sop extends Model
         'effective_to',
 
         'created_by',
+
+        // ✅ SOP Template (kalau migration kamu sudah add template_id)
+        'template_id',
     ];
 
     protected $casts = [
         'version' => 'integer',
+        'template_id' => 'integer',
 
         'effective_from' => 'date',
         'effective_to'   => 'date',
@@ -72,20 +77,21 @@ class Sop extends Model
 
         'rejected_at' => 'datetime',
 
-        'photos'    => 'array',
+        'photos'         => 'array',
         'form_schema'    => 'array',
         'builder_schema' => 'array',
         'meta'           => 'array',
-        'is_public' => 'boolean',
+        'is_public'      => 'boolean',
     ];
 
-    // kalau mau langsung bisa dipakai di blade: $sop->status_label dll
+    // bisa langsung dipakai di blade: $sop->status_label dll
     protected $appends = [
         'photos_safe',
         'status_label',
         'status_badge_class',
         'is_expired',
         'qr_link',
+        'template_name', // optional, aman walau template null
     ];
 
     // ==========================
@@ -117,6 +123,12 @@ class Sop extends Model
         return $this->belongsTo(User::class, 'rejected_by');
     }
 
+    // ✅ relasi ke SOP Template (kalau kamu bikin SopTemplate model)
+    public function template()
+    {
+        return $this->belongsTo(SopTemplate::class, 'template_id');
+    }
+
     /**
      * Semua versi SOP dengan code sama
      */
@@ -140,14 +152,23 @@ class Sop extends Model
     // ==========================
     /**
      * Ambil SOP hanya versi terbaru per code.
-     * (kalau nanti mau list tanpa duplikat versi)
+     * UUID-safe: pakai MAX(version), bukan MAX(id).
      */
     public function scopeLatestPerCode($query)
     {
         return $query->whereIn('id', function ($sub) {
-            $sub->selectRaw('MAX(id)')
-                ->from('sops')
-                ->groupBy('code');
+            $sub->select('s1.id')
+                ->from('sops as s1')
+                ->joinSub(
+                    Sop::query()
+                        ->selectRaw('code, MAX(version) as max_version')
+                        ->groupBy('code'),
+                    'mx',
+                    function ($join) {
+                        $join->on('s1.code', '=', 'mx.code')
+                             ->on('s1.version', '=', 'mx.max_version');
+                    }
+                );
         });
     }
 
@@ -166,7 +187,7 @@ class Sop extends Model
             'waiting_approval' => 'Menunggu Persetujuan',
             'approved'         => 'Disetujui',
             'expired'          => 'Kedaluwarsa',
-            default            => strtoupper($this->status),
+            default            => strtoupper((string) $this->status),
         };
     }
 
@@ -174,8 +195,8 @@ class Sop extends Model
     {
         return match ($this->status) {
             'draft'            => 'bg-slate-50 text-slate-700 border-slate-200',
-            'waiting_approval' => 'bg-blue-50 text-blue-700 border-blue-200',
-            'approved'         => 'bg-blue-600 text-white border-blue-600',
+            'waiting_approval' => 'bg-teal-50 text-teal-700 border-teal-200',
+            'approved'         => 'bg-[#05727d] text-white border-[#05727d]',
             'expired'          => 'bg-slate-100 text-slate-500 border-slate-200',
             default            => 'bg-slate-50 text-slate-700 border-slate-200',
         };
@@ -192,9 +213,21 @@ class Sop extends Model
      */
     public function getQrLinkAttribute()
     {
-        if ($this->is_public && \Route::has('sop.public.show')) {
-            return route('sop.public.show', $this);
+        try {
+            if ($this->is_public && Route::has('sop.public.show')) {
+                return route('sop.public.show', $this);
+            }
+            if (Route::has('sop.show')) {
+                return route('sop.show', $this);
+            }
+        } catch (\Throwable $e) {
+            // kalau dipanggil di CLI / route belum ready
         }
-        return route('sop.show', $this);
+        return '#';
+    }
+
+    public function getTemplateNameAttribute()
+    {
+        return $this->template?->name;
     }
 }
