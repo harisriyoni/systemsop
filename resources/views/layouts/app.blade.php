@@ -359,45 +359,38 @@
                 </a>
             @endif
 
-            {{-- Submissions --}}
+            {{-- Submissions (WITH BADGE) --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
                 <a href="{{ route('check_sheets.submissions') }}"
                    class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                     {{ request()->routeIs('check_sheets.submissions*') && !request('status')
                         ? 'bg-[#05727d] text-white shadow-sm'
                         : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                    <div class="w-9 h-9 rounded-lg grid place-items-center
+
+                    <div class="relative w-9 h-9 rounded-lg grid place-items-center
                         {{ request()->routeIs('check_sheets.submissions*') && !request('status')
                             ? 'bg-white/15'
                             : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+
                         <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v6H4zM4 14h16v6H4z" />
                         </svg>
-                    </div>
-                    <span x-show="!collapsed" x-transition>Submissions</span>
-                </a>
-            @endif
 
-            {{-- Approval Check Sheet --}}
-            @if($user && $user->isRole(['admin','qa','logistik']))
-                <a href="{{ route('check_sheets.submissions', ['status'=>'submitted']) }}"
-                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                    {{ request()->routeIs('check_sheets.submissions*') && request('status')=='submitted'
-                        ? 'bg-[#05727d] text-white shadow-sm'
-                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                    <div class="w-9 h-9 rounded-lg grid place-items-center
-                        {{ request()->routeIs('check_sheets.submissions*') && request('status')=='submitted'
-                            ? 'bg-white/15'
-                            : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                  d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
+                        {{-- badge kecil pas sidebar collapsed --}}
+                        @if($badgeCs > 0)
+                            <span x-show="collapsed"
+                                  class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1
+                                         rounded-full bg-amber-400 text-white text-[10px]
+                                         grid place-items-center font-bold"
+                                  style="display:none;">
+                                {{ $badgeCs }}
+                            </span>
+                        @endif
                     </div>
 
-                    <span x-show="!collapsed" x-transition class="flex-1">Approval Check Sheet</span>
+                    <span x-show="!collapsed" x-transition class="flex-1">Submissions</span>
 
+                    {{-- badge normal pas sidebar expand --}}
                     <span x-show="!collapsed" x-transition
                           class="text-[11px] px-2 py-0.5 rounded-full
                           {{ $badgeCs>0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500' }}">
@@ -405,6 +398,7 @@
                     </span>
                 </a>
             @endif
+
 
             {{-- REPORT GROUP --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))

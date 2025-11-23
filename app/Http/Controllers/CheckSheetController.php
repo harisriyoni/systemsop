@@ -11,30 +11,34 @@ use Illuminate\Support\Str;
 class CheckSheetController extends Controller
 {
     // =========================
+    // ROLE MATRIX (5 role)
+    // =========================
+    private array $rolesManage = ['admin','produksi','qa','logistik'];   // boleh bikin/edit/publish form
+    private array $rolesReview = ['admin','qa','logistik'];             // boleh approve/reject submission
+    private array $rolesViewSub = ['admin','produksi','qa','logistik']; // boleh lihat submissions
+    private array $rolesFill   = ['operator'];                          // yang boleh isi
+
+    // =========================
     // LIST FORM
     // =========================
     public function index(Request $request)
     {
         $query = CheckSheet::query()->latest();
 
-        // SEARCH title
         if ($request->filled('q')) {
             $keyword = trim($request->q);
             $query->where('title', 'like', "%{$keyword}%");
         }
 
-        // FILTER DEPT
         if ($request->filled('department')) {
             $dept = trim($request->department);
             $query->where('department', 'like', "%{$dept}%");
         }
 
-        // FILTER STATUS
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // FILTER PRODUCT / LINE
         if ($request->filled('product')) {
             $query->where('product', 'like', "%".trim($request->product)."%");
         }
@@ -53,6 +57,7 @@ class CheckSheetController extends Controller
     // =========================
     public function create()
     {
+        $this->authorizeManage();
         return view('check_sheets.create');
     }
 
@@ -66,20 +71,31 @@ class CheckSheetController extends Controller
             'product'     => ['nullable','string','max:100'],
             'line'        => ['nullable','string','max:100'],
             'description' => ['nullable','string'],
-
-            // OPTIONAL kalau builder kamu simpan field JSON
             'fields'      => ['nullable','array'],
+
+            // penting: status boleh dari UI
+            'status'      => ['nullable','in:draft,active'],
         ]);
 
-        // default status: draft dulu biar sesuai flow publish
-        $data['status']     = 'draft';
         $data['created_by'] = auth()->id();
+
+        // default draft kalau UI gak ngirim status
+        $requestedStatus = $data['status'] ?? 'draft';
+
+        // kalau minta active, hanya role manage yang boleh
+        if ($requestedStatus === 'active' && $this->canPublish()) {
+            $data['status']       = 'active';
+            $data['published_by'] = auth()->id();
+            $data['published_at'] = now();
+        } else {
+            $data['status'] = 'draft';
+        }
 
         $form = CheckSheet::create($data);
 
         return redirect()
             ->route('check_sheets.edit', $form)
-            ->with('success', 'Form Check Sheet berhasil dibuat (Draft). Silakan Publish jika sudah final.');
+            ->with('success', 'Form Check Sheet berhasil dibuat.');
     }
 
     // =========================
@@ -102,18 +118,25 @@ class CheckSheetController extends Controller
             'line'        => ['nullable','string','max:100'],
             'description' => ['nullable','string'],
             'fields'      => ['nullable','array'],
+            'status'      => ['nullable','in:draft,active'],
         ]);
 
-        // kalau sudah aktif lalu diedit → balik jadi draft biar publish ulang (compliance)
-        if ($checkSheet->status === 'active') {
+        // kalau active terus diedit DAN kamu mau compliance publish ulang:
+        if ($checkSheet->status === 'active' && empty($data['status'])) {
             $data['status'] = 'draft';
+        }
+
+        // kalau UI minta active lagi (publish ulang)
+        if (($data['status'] ?? null) === 'active' && $this->canPublish()) {
+            $data['published_by'] = auth()->id();
+            $data['published_at'] = now();
         }
 
         $checkSheet->update($data);
 
         return redirect()
             ->route('check_sheets.edit', $checkSheet)
-            ->with('success', 'Form berhasil diupdate. Jika tadi Active, sekarang jadi Draft dan perlu Publish ulang.');
+            ->with('success', 'Form berhasil diupdate.');
     }
 
     // =========================
@@ -124,9 +147,6 @@ class CheckSheetController extends Controller
         if (!auth()->user()->isRole(['admin'])) {
             return back()->with('error', 'Hanya admin yang boleh menghapus form.');
         }
-
-        // optional: hapus submissions juga kalau mau hard delete
-        // $checkSheet->submissions()->delete();
 
         $checkSheet->delete();
 
@@ -143,8 +163,8 @@ class CheckSheetController extends Controller
         $this->authorizeManage();
 
         $checkSheet->status       = 'active';
-        $checkSheet->published_by = auth()->id();   // kolom opsional
-        $checkSheet->published_at = now();          // kolom opsional
+        $checkSheet->published_by = auth()->id();
+        $checkSheet->published_at = now();
         $checkSheet->save();
 
         return back()->with('success', 'Form berhasil di-Publish dan siap dipakai operator.');
@@ -157,7 +177,7 @@ class CheckSheetController extends Controller
         $checkSheet->status = 'draft';
         $checkSheet->save();
 
-        return back()->with('success', 'Form di-Unpublish (Draft). Operator tidak bisa isi sebelum Publish lagi.');
+        return back()->with('success', 'Form di-Unpublish (Draft).');
     }
 
     // =========================
@@ -167,10 +187,8 @@ class CheckSheetController extends Controller
     {
         $this->authorizeManage();
 
-        // URL isi form (via QR)
         $url = route('check_sheets.fill', $checkSheet);
 
-        // Simpan QR kalau package simple-qrcode ada, kalau tidak ya simpan url-nya aja
         $qrPath = null;
         $qrUrl  = $url;
 
@@ -187,8 +205,8 @@ class CheckSheetController extends Controller
             $qrUrl = Storage::disk('public')->url($qrPath);
         }
 
-        $checkSheet->qr_path = $qrPath; // kolom opsional
-        $checkSheet->qr_url  = $qrUrl;  // kolom opsional
+        $checkSheet->qr_path = $qrPath;
+        $checkSheet->qr_url  = $qrUrl;
         $checkSheet->save();
 
         return back()->with('success', 'QR Form berhasil dibuat.');
@@ -203,6 +221,7 @@ class CheckSheetController extends Controller
             abort(404, 'Form tidak aktif.');
         }
 
+
         return view('check_sheets.fill', compact('checkSheet'));
     }
 
@@ -212,14 +231,13 @@ class CheckSheetController extends Controller
             abort(404, 'Form tidak aktif.');
         }
 
-        // Validasi basic (biar demo aman)
+
         $basic = $request->validate([
             'shift'  => ['required','string','max:50'],
             'result' => ['required','string'],
             'notes'  => ['nullable','string'],
         ]);
 
-        // Support field dynamic dari builder (optional)
         $dynamic = $request->input('data', []);
         if (!is_array($dynamic)) $dynamic = [];
 
@@ -228,14 +246,14 @@ class CheckSheetController extends Controller
         CheckSheetSubmission::create([
             'check_sheet_id' => $checkSheet->id,
             'operator_id'    => auth()->id(),
-            'status'         => 'submitted',
+            'status'         => 'under_review',   // masuk approval
             'data'           => $payload,
             'submitted_at'   => now(),
         ]);
 
         return redirect()
             ->route('check_sheets.submissions')
-            ->with('success', 'Check Sheet berhasil dikirim.');
+            ->with('success', 'Check Sheet berhasil dikirim & menunggu approval.');
     }
 
     // =========================
@@ -243,6 +261,8 @@ class CheckSheetController extends Controller
     // =========================
     public function submissions(Request $request)
     {
+        $this->authorizeViewSubmissions();
+
         $query = CheckSheetSubmission::with(['checkSheet','operator'])
             ->orderByDesc('submitted_at');
 
@@ -267,13 +287,9 @@ class CheckSheetController extends Controller
         return view('check_sheets.submissions', compact('submissions'));
     }
 
-    // DETAIL SUBMISSION (baru, buat route submissions.show)
     public function showSubmission(CheckSheetSubmission $submission)
     {
-        $role = auth()->user()->role;
-        if (!in_array($role, ['admin','produksi','qa','logistik'])) {
-            abort(403);
-        }
+        $this->authorizeViewSubmissions();
 
         $submission->load(['checkSheet','operator','reviewer']);
 
@@ -285,11 +301,7 @@ class CheckSheetController extends Controller
     // =========================
     public function updateStatus(Request $request, CheckSheetSubmission $submission)
     {
-        $role = auth()->user()->role;
-
-        if (!in_array($role, ['admin','qa','logistik'])) {
-            return back()->with('error', 'Anda tidak punya akses untuk menyetujui submission.');
-        }
+        $this->authorizeReview();
 
         $data = $request->validate([
             'status' => ['required','in:under_review,approved,rejected'],
@@ -310,8 +322,27 @@ class CheckSheetController extends Controller
     // =========================
     private function authorizeManage()
     {
-        if (!auth()->user()->isRole(['admin','produksi','qa','logistik'])) {
+        if (!auth()->user()->isRole($this->rolesManage)) {
             abort(403, 'Anda tidak punya akses mengelola form.');
         }
+    }
+
+    private function authorizeViewSubmissions()
+    {
+        if (!auth()->user()->isRole($this->rolesViewSub)) {
+            abort(403, 'Anda tidak punya akses melihat submission.');
+        }
+    }
+
+    private function authorizeReview()
+    {
+        if (!auth()->user()->isRole($this->rolesReview)) {
+            abort(403, 'Anda tidak punya akses approval.');
+        }
+    }
+
+    private function canPublish(): bool
+    {
+        return auth()->user()->isRole($this->rolesManage);
     }
 }
