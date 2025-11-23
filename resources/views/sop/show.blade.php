@@ -6,53 +6,58 @@
 @php
   // --- Normalisasi photos biar aman (local + hostinger) ---
   $rawPhotos = $sop->photos ?? [];
-  if (is_string($rawPhotos)) {
-      $rawPhotos = json_decode($rawPhotos, true) ?: [];
-  }
+if (is_string($rawPhotos)) {
+    $rawPhotos = json_decode($rawPhotos, true) ?: [];
+}
 
-  $photos = [];
-  foreach ($rawPhotos as $p) {
-      if (is_string($p)) {
-          $path = $p;
-          $desc = null;
-      } elseif (is_array($p)) {
-          $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
-          $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
-      } else {
-          $path = null;
-          $desc = null;
-      }
+$photos = [];
 
-      if (!$path) {
-          continue;
-      }
+foreach ($rawPhotos as $p) {
 
-      // Kalau sudah full URL, pakai langsung
-      if (Str::startsWith($path, ['http://','https://','//'])) {
-          $url = $path;
-      } else {
-          // bersihkan prefix salah:
-          // "sops/abc.png" / "storage/sops/..." / "storage/app/public/sops/..."
-          $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($path, '/'));
-          // sekarang idealnya: "sops/abc.png"
+    // Ambil path + desc
+    if (is_string($p)) {
+        $path = $p;
+        $desc = null;
+    } elseif (is_array($p)) {
+        $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
+        $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
+    } else {
+        continue;
+    }
 
-          $base = rtrim(config('app.url'), '/');
+    if (!$path) continue;
 
-          // LOCAL: Laravel standar -> public/storage/...
-          if (app()->environment('local')) {
-              $url = $base.'/storage/'.$clean;
-          } else {
-              // HOSTINGER: root project -> /storage/app/public/...
-              $url = $base.'/storage/app/public/'.$clean;
-          }
-      }
+    // Jika URL penuh → pakai langsung
+    if (Str::startsWith($path, ['http://', 'https://', '//'])) {
+        $url = $path;
+    } else {
+        // NORMALISASI: buang prefix yang salah
+        // contoh yang masuk DB:
+        // - sops/xxx.png
+        // - storage/sops/xxx.png
+        // - storage/app/public/sops/xxx.png
+        $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($path, '/'));
 
-      $photos[] = [
-          'path' => $path,
-          'url'  => $url,
-          'desc' => $desc,
-      ];
-  }
+        // BASE DOMAIN
+        $base = rtrim(config('app.url'), '/');
+
+        // === URL FINAL (SAMA PERSIS DENGAN AVATAR) ===
+        // Local
+        if (app()->environment('local')) {
+            $url = $base.'/storage/'.$clean;
+        } 
+        // Hostinger / production
+        else {
+            $url = $base.'/storage/app/public/'.$clean;
+        }
+    }
+
+    $photos[] = [
+        'path' => $path,
+        'url'  => $url,
+        'desc' => $desc,
+    ];
+}
 
   
 
