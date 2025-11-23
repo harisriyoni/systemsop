@@ -103,17 +103,27 @@ Route::middleware('auth')->group(function () {
                 ->name('destroy')
                 ->middleware('role:admin,produksi');
 
+            // JSON TEMPLATE (BUAT LOAD TEMPLATE KE CREATE SOP)
             Route::get('/{template}/json', [SopTemplateController::class, 'showJson'])
                 ->name('json')
                 ->middleware('role:admin,produksi');
 
-            // ✅ SHOW / VIEW DETAIL
+            // SHOW / VIEW PDF TEMPLATE
             Route::get('/{template}', [SopTemplateController::class, 'show'])
                 ->name('show')
                 ->middleware('role:admin,produksi');
         });
 
-
+        // =========================
+        // SOP JSON (BUAT IMPORT KE TEMPLATE)
+        // URL: /sop/{sop}/json
+        // NAME: sop.json
+        // WAJIB di luar templates group
+        // WAJIB sebelum semua wildcard /{sop} lainnya
+        // =========================
+        Route::get('/{sop}/json', [SopController::class, 'showJson'])
+            ->name('json')
+            ->middleware('role:admin,produksi,qa,logistik');
 
         // =========================
         // SOP ROUTES
@@ -136,12 +146,7 @@ Route::middleware('auth')->group(function () {
             ->name('approval.index')
             ->middleware('role:admin,produksi,qa,logistik');
 
-        /**
-         * =========================
-         * VERSIONS & HISTORY (GLOBAL)
-         * WAJIB sebelum /{sop}
-         * =========================
-         */
+        // versions/history global
         Route::get('/versions', [SopController::class, 'versionsIndex'])
             ->name('versions.index')
             ->middleware('role:admin,produksi,qa,logistik');
@@ -312,4 +317,5 @@ Route::middleware('auth')->group(function () {
 
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
     });
+
 });

@@ -463,6 +463,35 @@ class SopController extends Controller
     }
 
     // ==========================
+    // ✅ JSON SOP (BUAT IMPORT KE TEMPLATE)
+    // terima ID atau CODE
+    // ==========================
+    public function showJson($sop)
+    {
+        // akses sama kaya lihat SOP internal
+        if (!auth()->user()->isRole(['admin', 'produksi', 'qa', 'logistik'])) {
+            abort(403, 'Tidak punya akses SOP.');
+        }
+
+        $model = Sop::query()
+            ->where('id', $sop)
+            ->orWhere('code', $sop)
+            ->firstOrFail();
+
+        return response()->json([
+            'id'             => $model->id,
+            'code'           => $model->code,
+            'title'          => $model->title,
+            'department'     => $model->department,
+            'product'        => $model->product,
+            'line'           => $model->line,
+            'form_schema'    => $model->form_schema ?? [],
+            'builder_schema' => $model->builder_schema ?? [],
+            'meta'           => $model->meta ?? [],
+        ]);
+    }
+
+    // ==========================
     // PUBLIC SHOW (QR TANPA LOGIN)
     // ==========================
     public function publicShow(Request $request, Sop $sop)
@@ -596,7 +625,7 @@ class SopController extends Controller
             $keyword = trim($request->q);
             $query->where(function ($subq) use ($keyword) {
                 $subq->where('code', 'like', "%{$keyword}%")
-                     ->orWhere('title', 'like', "%{$keyword}%");
+                     ->orWhere('sops.title', 'like', "%{$keyword}%");
             });
         }
 

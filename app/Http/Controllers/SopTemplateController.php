@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Sop;
 use App\Models\SopTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,23 +16,25 @@ class SopTemplateController extends Controller
     {
         $this->authorizeManage();
 
-        $q = trim($request->q ?? '');
-        $dept = trim($request->department ?? '');
+        $q      = trim($request->q ?? '');
+        $dept   = trim($request->department ?? '');
         $active = $request->active; // 1/0/null
 
         $query = SopTemplate::query()->orderByDesc('updated_at');
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
-                $sub->where('name', 'like', "%$q%")
-                    ->orWhere('code', 'like', "%$q%");
+                $sub->where('name', 'like', "%{$q}%")
+                    ->orWhere('code', 'like', "%{$q}%");
             });
         }
+
         if ($dept !== '') {
-            $query->where('department', 'like', "%$dept%");
+            $query->where('department', 'like', "%{$dept}%");
         }
+
         if ($active !== null && $active !== '') {
-            $query->where('is_active', (bool)$active);
+            $query->where('is_active', (bool) $active);
         }
 
         $templates = $query->paginate(12)->withQueryString();
@@ -46,13 +49,24 @@ class SopTemplateController extends Controller
     {
         $this->authorizeManage();
 
+        /**
+         * ✅ Ambil list SOP buat dropdown import di halaman create template
+         * Kalau mau cuma approved:
+         * ->where('status','approved')
+         */
+        $sops = Sop::query()
+            ->orderByDesc('updated_at')
+            ->limit(300)
+            ->get(['id','code','title','department','product','line','status','updated_at']);
+
         return view('sop_templates.create', [
             'template' => new SopTemplate([
-                'is_active' => true,
-                'form_schema' => [],
+                'is_active'      => true,
+                'form_schema'    => [],
                 'builder_schema' => [],
-                'meta' => ['extra_fields' => []],
+                'meta'           => ['extra_fields' => []],
             ]),
+            'sops' => $sops, // ✅ dikirim ke blade
         ]);
     }
 
@@ -67,7 +81,8 @@ class SopTemplateController extends Controller
 
         $tpl = SopTemplate::create($data);
 
-        return redirect()->route('sop.templates.edit', $tpl)
+        return redirect()
+            ->route('sop.templates.edit', $tpl)
             ->with('success', 'Template SOP berhasil dibuat.');
     }
 
@@ -77,6 +92,7 @@ class SopTemplateController extends Controller
     public function edit(SopTemplate $template)
     {
         $this->authorizeManage();
+
         return view('sop_templates.edit', compact('template'));
     }
 
@@ -105,12 +121,14 @@ class SopTemplateController extends Controller
         }
 
         $template->delete();
-        return redirect()->route('sop.templates.index')
+
+        return redirect()
+            ->route('sop.templates.index')
             ->with('success', 'Template SOP berhasil dihapus.');
     }
 
     // ==========================
-    // API kecil buat load template ke create SOP
+    // JSON TEMPLATE (BUAT LOAD KE CREATE SOP)
     // ==========================
     public function showJson(SopTemplate $template)
     {
@@ -129,6 +147,30 @@ class SopTemplateController extends Controller
     }
 
     // ==========================
+    // SHOW PDF PREVIEW TEMPLATE
+    // ==========================
+    public function show(SopTemplate $template)
+    {
+        $this->authorizeManage();
+
+        // pastiin schema ada bentuk array
+        $template->form_schema    = $template->form_schema ?? [];
+        $template->builder_schema = $template->builder_schema ?? [];
+        $template->meta           = $template->meta ?? [];
+
+        // generate PDF dari blade
+        $pdf = \PDF::loadView('sop_templates.show_pdf', compact('template'))
+            ->setPaper('a4');
+
+        // STREAM biar bisa refresh terus & gak ke-cache
+        return response($pdf->stream("template-{$template->code}.pdf"))
+            ->header('Content-Type', 'application/pdf')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    }
+
+    // ==========================
     // VALIDATION
     // ==========================
     private function validatePayload(Request $request, ?SopTemplate $template = null)
@@ -140,16 +182,18 @@ class SopTemplateController extends Controller
             'product'     => ['nullable', 'string', 'max:100'],
             'line'        => ['nullable', 'string', 'max:100'],
 
-            'form_schema'    => ['nullable', 'string'],   // JSON string
-            'builder_schema' => ['nullable', 'string'],   // JSON string
-            'meta'           => ['nullable', 'string'],   // JSON string
+            // JSON string dari textarea
+            'form_schema'    => ['nullable', 'string'],
+            'builder_schema' => ['nullable', 'string'],
+            'meta'           => ['nullable', 'string'],
 
             'is_active'   => ['nullable', 'boolean'],
         ];
 
         // code unique kalau diisi
         if ($request->filled('code')) {
-            $rules['code'][] = Rule::unique('sop_templates', 'code')->ignore($template?->id);
+            $rules['code'][] = Rule::unique('sop_templates', 'code')
+                ->ignore($template?->id);
         }
 
         $validated = $request->validate($rules);
@@ -175,25 +219,4 @@ class SopTemplateController extends Controller
             abort(403, 'Anda tidak punya akses mengelola SOP Template.');
         }
     }
-
-    public function show(SopTemplate $template)
-{
-    $this->authorizeManage();
-
-    // pastiin schema ada bentuk array
-    $template->form_schema = $template->form_schema ?? [];
-    $template->builder_schema = $template->builder_schema ?? [];
-    $template->meta = $template->meta ?? [];
-
-    // generate PDF dari blade
-    $pdf = \PDF::loadView('sop_templates.show_pdf', compact('template'))
-        ->setPaper('a4');
-
-    // STREAM biar bisa refresh terus & gak ke-cache
-    return response($pdf->stream("template-{$template->code}.pdf"))
-        ->header('Content-Type', 'application/pdf')
-        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-        ->header('Pragma', 'no-cache')
-        ->header('Expires', '0');
-}
 }
