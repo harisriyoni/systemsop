@@ -7,52 +7,55 @@
   // --- Normalisasi photos biar aman (local + hosting) ---
   $rawPhotos = $sop->photos ?? [];
   if (is_string($rawPhotos)) {
-    $rawPhotos = json_decode($rawPhotos, true) ?: [];
+      $rawPhotos = json_decode($rawPhotos, true) ?: [];
   }
 
   $photos = [];
+  $base = rtrim(config('app.url') ?: url('/'), '/');
+  $host = request()->getHost();
+
   foreach ($rawPhotos as $p) {
-    if (is_string($p)) {
-      $path = $p;
-      $desc = null;
-    } elseif (is_array($p)) {
-      $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
-      $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
-    } else {
-      $path = null;
-      $desc = null;
-    }
-
-    if (!$path) {
-      continue;
-    }
-
-    // Kalau sudah full URL -> pakai langsung
-    if (Str::startsWith($path, ['http://','https://','//'])) {
-      $url = $path;
-    } else {
-      // BERSIHKAN prefix yg mungkin ikut ke DB:
-      // "sops/abc.png"
-      // "storage/sops/abc.png"
-      // "storage/app/public/sops/abc.png"
-      $cleanPath = preg_replace('#^storage/(app/public/)?#', '', ltrim($path, '/'));
-      // sekarang idealnya: "sops/abc.png"
-
-      if (app()->environment('local')) {
-        // LOCAL (Laravel default: public/storage -> storage/app/public)
-        // URL benar: /storage/sops/abc.png
-        $url = '/storage/' . $cleanPath;
+      if (is_string($p)) {
+          $path = $p;
+          $desc = null;
+      } elseif (is_array($p)) {
+          $path = $p['path'] ?? $p['url'] ?? $p['photo'] ?? null;
+          $desc = $p['desc'] ?? $p['description'] ?? $p['keterangan'] ?? null;
       } else {
-        // HOSTINGER kamu maunya: /storage/app/public/sops/abc.png
-        $url = '/storage/app/public/' . $cleanPath;
+          $path = null;
+          $desc = null;
       }
-    }
 
-    $photos[] = [
-      'path' => $path,
-      'url'  => $url,
-      'desc' => $desc,
-    ];
+      if (!$path) {
+          continue;
+      }
+
+      // Kalau sudah full URL -> pakai langsung
+      if (Str::startsWith($path, ['http://','https://','//'])) {
+          $url = $path;
+      } else {
+          // BERSIHKAN prefix yang mungkin ikut ke DB:
+          // "sops/abc.png"
+          // "storage/sops/abc.png"
+          // "storage/app/public/sops/abc.png"
+          $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($path, '/'));
+          // hasil ideal: "sops/abc.png"
+
+          // BEDAIN LOCAL vs HOSTINGER TANPA NGOPREK .env
+          if (Str::contains($host, 'hostingersite.com')) {
+              // PRODUKSI HOSTINGER → /storage/app/public/sops/...
+              $url = $base . '/storage/app/public/' . $clean;
+          } else {
+              // LOCAL (Laravel default) → /storage/sops/...
+              $url = $base . '/storage/' . $clean;
+          }
+      }
+
+      $photos[] = [
+          'path' => $path,
+          'url'  => $url,
+          'desc' => $desc,
+      ];
   }
   
 
