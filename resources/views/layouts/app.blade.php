@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="utf-8">
     <title>@yield('title', 'PT. DIPSOL INDONESIA')</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    {{-- Vite optional --}}
+    {{-- Vite (kalau kamu pakai build Vite, isi arraynya) --}}
     @vite([])
 
     {{-- Tailwind CDN --}}
@@ -42,7 +41,7 @@
     $user = auth()->user();
 
     // ================= LOGO SIDEBAR =================
-    $logoPath = config('app.company_logo', 'assets/images/dipsol.png'); // relative public path
+    $logoPath = config('app.company_logo', 'assets/images/dipsol.png');
     $logoFile = public_path($logoPath);
     $hasLogo  = file_exists($logoFile);
     $logoUrl  = asset($logoPath);
@@ -67,8 +66,8 @@
     $currentSop = request()->route('sop');
 
     // ===== URL GLOBAL =====
-    $versionsGlobalUrl = route('sop.versions.index'); // latest per code
-    $historyGlobalUrl  = route('sop.history.index');  // semua record/history
+    $versionsGlobalUrl = route('sop.versions.index');
+    $historyGlobalUrl  = route('sop.history.index');
 
     // ===== URL PER SOP (fallback ke global) =====
     $versionsUrl = $currentSop ? route('sop.versions', $currentSop) : $versionsGlobalUrl;
@@ -194,48 +193,85 @@
                 <span x-show="!collapsed" x-transition class="font-medium">SOP Management</span>
             </a>
 
+            {{-- Template SOP (LIST) --}}
+            @if($user && $user->isRole(['admin','produksi']) && \Illuminate\Support\Facades\Route::has('sop.templates.index'))
+                <a href="{{ route('sop.templates.index') }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition ml-3
+                   {{ request()->routeIs('sop.templates.*') && !request()->routeIs('sop.templates.create')
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-8 h-8 rounded-lg grid place-items-center
+                        {{ request()->routeIs('sop.templates.*') && !request()->routeIs('sop.templates.create')
+                            ? 'bg-white/15'
+                            : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-4 h-4 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>
+                        </svg>
+                    </div>
+                    <span x-show="!collapsed" x-transition class="text-xs font-medium">Template SOP</span>
+                </a>
+            @endif
+
+            {{-- Template SOP (CREATE) --}}
+            @if($user && $user->isRole(['admin','produksi']) && \Illuminate\Support\Facades\Route::has('sop.templates.create'))
+                <a href="{{ route('sop.templates.create') }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition ml-3
+                   {{ request()->routeIs('sop.templates.create')
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-8 h-8 rounded-lg grid place-items-center
+                        {{ request()->routeIs('sop.templates.create') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-4 h-4 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </div>
+                    <span x-show="!collapsed" x-transition class="text-xs">Buat Template</span>
+                </a>
+            @endif
+
             {{-- Create SOP --}}
             @if($user && $user->isRole(['admin','produksi']))
-            <a href="{{ route('sop.create') }}"
-               class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-               {{ request()->routeIs('sop.create')
-                    ? 'bg-[#05727d] text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('sop.create') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                    <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                </div>
-                <span x-show="!collapsed" x-transition>Create SOP</span>
-            </a>
+                <a href="{{ route('sop.create') }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
+                   {{ request()->routeIs('sop.create')
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
+                        {{ request()->routeIs('sop.create') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </div>
+                    <span x-show="!collapsed" x-transition>Create SOP</span>
+                </a>
             @endif
 
             {{-- Approval SOP --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
-            <a href="{{ route('sop.approval.index') }}"
-               class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-               {{ request()->routeIs('sop.approval.*','sop.approve','sop.reject','sop.submit')
-                    ? 'bg-[#05727d] text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('sop.approval.*','sop.approve','sop.reject','sop.submit')
-                        ? 'bg-white/15'
-                        : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                    <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M9 12l2 2 4-4M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                </div>
+                <a href="{{ route('sop.approval.index') }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
+                   {{ request()->routeIs('sop.approval.*','sop.approve','sop.reject','sop.submit')
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
+                        {{ request()->routeIs('sop.approval.*','sop.approve','sop.reject','sop.submit')
+                            ? 'bg-white/15'
+                            : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M9 12l2 2 4-4M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                    </div>
 
-                <span x-show="!collapsed" x-transition class="flex-1">Approval SOP</span>
+                    <span x-show="!collapsed" x-transition class="flex-1">Approval SOP</span>
 
-                <span x-show="!collapsed" x-transition
-                      class="text-[11px] px-2 py-0.5 rounded-full
-                      {{ $badgeSop>0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500' }}">
-                    {{ $badgeSop }}
-                </span>
-            </a>
+                    <span x-show="!collapsed" x-transition
+                          class="text-[11px] px-2 py-0.5 rounded-full
+                          {{ $badgeSop>0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500' }}">
+                        {{ $badgeSop }}
+                    </span>
+                </a>
             @endif
 
             {{-- Versions SOP (global / per SOP auto) --}}
@@ -256,7 +292,7 @@
                 <span x-show="!collapsed" x-transition class="text-xs">
                     Versions SOP
                     @if(!$currentSop)
-                      <span class="text-[10px] opacity-70">(Latest)</span>
+                        <span class="text-[10px] opacity-70">(Latest)</span>
                     @endif
                 </span>
             </button>
@@ -279,7 +315,7 @@
                 <span x-show="!collapsed" x-transition class="text-xs">
                     History SOP
                     @if(!$currentSop)
-                      <span class="text-[10px] opacity-70">(All)</span>
+                        <span class="text-[10px] opacity-70">(All)</span>
                     @endif
                 </span>
             </button>
@@ -308,136 +344,137 @@
 
             {{-- Create Form --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
-            <a href="{{ route('check_sheets.create') }}"
-               class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                {{ request()->routeIs('check_sheets.create')
-                    ? 'bg-[#05727d] text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('check_sheets.create') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                    <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                </div>
-                <span x-show="!collapsed" x-transition>Create Form</span>
-            </a>
+                <a href="{{ route('check_sheets.create') }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
+                    {{ request()->routeIs('check_sheets.create')
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
+                        {{ request()->routeIs('check_sheets.create') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </div>
+                    <span x-show="!collapsed" x-transition>Create Form</span>
+                </a>
             @endif
 
             {{-- Submissions --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
-            <a href="{{ route('check_sheets.submissions') }}"
-               class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                {{ request()->routeIs('check_sheets.submissions*') && !request('status')
-                    ? 'bg-[#05727d] text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                <div class="w-9 h-9 rounded-lg grid place-items-center
+                <a href="{{ route('check_sheets.submissions') }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                     {{ request()->routeIs('check_sheets.submissions*') && !request('status')
-                        ? 'bg-white/15'
-                        : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                    <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v6H4zM4 14h16v6H4z" />
-                    </svg>
-                </div>
-                <span x-show="!collapsed" x-transition>Submissions</span>
-            </a>
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
+                        {{ request()->routeIs('check_sheets.submissions*') && !request('status')
+                            ? 'bg-white/15'
+                            : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v6H4zM4 14h16v6H4z" />
+                        </svg>
+                    </div>
+                    <span x-show="!collapsed" x-transition>Submissions</span>
+                </a>
             @endif
 
             {{-- Approval Check Sheet --}}
             @if($user && $user->isRole(['admin','qa','logistik']))
-            <a href="{{ route('check_sheets.submissions', ['status'=>'submitted']) }}"
-               class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                {{ request()->routeIs('check_sheets.submissions*') && request('status')=='submitted'
-                    ? 'bg-[#05727d] text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                <div class="w-9 h-9 rounded-lg grid place-items-center
+                <a href="{{ route('check_sheets.submissions', ['status'=>'submitted']) }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
                     {{ request()->routeIs('check_sheets.submissions*') && request('status')=='submitted'
-                        ? 'bg-white/15'
-                        : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                    <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                </div>
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
+                        {{ request()->routeIs('check_sheets.submissions*') && request('status')=='submitted'
+                            ? 'bg-white/15'
+                            : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                    </div>
 
-                <span x-show="!collapsed" x-transition class="flex-1">Approval Check Sheet</span>
+                    <span x-show="!collapsed" x-transition class="flex-1">Approval Check Sheet</span>
 
-                <span x-show="!collapsed" x-transition
-                      class="text-[11px] px-2 py-0.5 rounded-full
-                      {{ $badgeCs>0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500' }}">
-                    {{ $badgeCs }}
-                </span>
-            </a>
+                    <span x-show="!collapsed" x-transition
+                          class="text-[11px] px-2 py-0.5 rounded-full
+                          {{ $badgeCs>0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500' }}">
+                        {{ $badgeCs }}
+                    </span>
+                </a>
             @endif
 
             {{-- REPORT GROUP --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
-            <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
-                <span>Report</span>
-                <span class="h-px flex-1 bg-slate-200"></span>
-            </div>
-
-            <a href="{{ route('reports.index') }}"
-               class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                {{ request()->routeIs('reports.*')
-                    ? 'bg-[#05727d] text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('reports.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                    <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 15l3-3 3 2 5-5" />
-                    </svg>
+                <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
+                    <span>Report</span>
+                    <span class="h-px flex-1 bg-slate-200"></span>
                 </div>
-                <span x-show="!collapsed" x-transition>Report & Analytics</span>
-            </a>
+
+                <a href="{{ route('reports.index') }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
+                    {{ request()->routeIs('reports.*')
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
+                        {{ request()->routeIs('reports.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 15l3-3 3 2 5-5" />
+                        </svg>
+                    </div>
+                    <span x-show="!collapsed" x-transition>Report & Analytics</span>
+                </a>
             @endif
 
             {{-- USER ACCESS GROUP --}}
             @if($user && $user->isRole(['admin']))
-            <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
-                <span>Akses User</span>
-                <span class="h-px flex-1 bg-slate-200"></span>
-            </div>
-
-            <a href="{{ route('users.index') }}"
-               class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                {{ request()->routeIs('users.*')
-                    ? 'bg-[#05727d] text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('users.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                    <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
-                        <circle cx="9" cy="7" r="4" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75" />
-                    </svg>
+                <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
+                    <span>Akses User</span>
+                    <span class="h-px flex-1 bg-slate-200"></span>
                 </div>
-                <span x-show="!collapsed" x-transition>Manajemen User</span>
-            </a>
+
+                <a href="{{ route('users.index') }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
+                    {{ request()->routeIs('users.*')
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
+                        {{ request()->routeIs('users.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M23 21v-2a4 4 0 00-3-3.87" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 010 7.75" />
+                        </svg>
+                    </div>
+                    <span x-show="!collapsed" x-transition>Manajemen User</span>
+                </a>
             @endif
 
             {{-- QR GROUP --}}
             @if($user && $user->isRole(['admin','produksi','qa','logistik']))
-            <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
-                <span>QR</span>
-                <span class="h-px flex-1 bg-slate-200"></span>
-            </div>
-
-            <a href="{{ route('qr_center.index') }}"
-               class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
-                {{ request()->routeIs('qr_center.*')
-                    ? 'bg-[#05727d] text-white shadow-sm'
-                    : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
-                <div class="w-9 h-9 rounded-lg grid place-items-center
-                    {{ request()->routeIs('qr_center.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
-                    <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h3v3h-3zM17 17h3v3h-3z" />
-                    </svg>
+                <div class="mt-4 px-3 text-[11px] uppercase text-slate-400 tracking-wider flex items-center gap-2" x-show="!collapsed">
+                    <span>QR</span>
+                    <span class="h-px flex-1 bg-slate-200"></span>
                 </div>
-                <span x-show="!collapsed" x-transition>QR Center</span>
-            </a>
+
+                <a href="{{ route('qr_center.index') }}"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition
+                    {{ request()->routeIs('qr_center.*')
+                        ? 'bg-[#05727d] text-white shadow-sm'
+                        : 'text-slate-700 hover:bg-[#e6f1f2] hover:text-[#045058]' }}">
+                    <div class="w-9 h-9 rounded-lg grid place-items-center
+                        {{ request()->routeIs('qr_center.*') ? 'bg-white/15' : 'bg-slate-100 group-hover:bg-[#cde3e5]' }}">
+                        <svg class="w-5 h-5 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h3v3h-3zM17 17h3v3h-3z" />
+                        </svg>
+                    </div>
+                    <span x-show="!collapsed" x-transition>QR Center</span>
+                </a>
             @endif
 
         </nav>

@@ -10,6 +10,7 @@ use App\Http\Controllers\QrCenterController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SopTemplateController;
 
 // =========================
 // AUTH
@@ -52,7 +53,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [ProfileController::class, 'show'])->name('show');
         Route::get('/edit', [ProfileController::class, 'edit'])->name('edit');
 
-        // update profile data
         Route::patch('/', [ProfileController::class, 'update'])->name('update');
 
         Route::patch('/password', [ProfileController::class, 'updatePassword'])
@@ -67,9 +67,57 @@ Route::middleware('auth')->group(function () {
 
 
     // =========================
-    // SOP
+    // SOP + SOP TEMPLATES
     // =========================
     Route::prefix('sop')->name('sop.')->group(function () {
+
+        // =========================
+        // SOP TEMPLATES (NESTED)
+        // URL: /sop/templates/...
+        // NAME: sop.templates.*
+        // WAJIB di atas route /{sop}
+        // =========================
+        Route::prefix('templates')->name('templates.')->group(function () {
+
+            Route::get('/', [SopTemplateController::class, 'index'])
+                ->name('index')
+                ->middleware('role:admin,produksi');
+
+            Route::get('/create', [SopTemplateController::class, 'create'])
+                ->name('create')
+                ->middleware('role:admin,produksi');
+
+            Route::post('/', [SopTemplateController::class, 'store'])
+                ->name('store')
+                ->middleware('role:admin,produksi');
+
+            Route::get('/{template}/edit', [SopTemplateController::class, 'edit'])
+                ->name('edit')
+                ->middleware('role:admin,produksi');
+
+            Route::match(['put', 'patch'], '/{template}', [SopTemplateController::class, 'update'])
+                ->name('update')
+                ->middleware('role:admin,produksi');
+
+            Route::delete('/{template}', [SopTemplateController::class, 'destroy'])
+                ->name('destroy')
+                ->middleware('role:admin,produksi');
+
+            Route::get('/{template}/json', [SopTemplateController::class, 'showJson'])
+                ->name('json')
+                ->middleware('role:admin,produksi');
+
+            // ✅ SHOW / VIEW DETAIL
+            Route::get('/{template}', [SopTemplateController::class, 'show'])
+                ->name('show')
+                ->middleware('role:admin,produksi');
+        });
+
+
+
+        // =========================
+        // SOP ROUTES
+        // =========================
 
         // list SOP
         Route::get('/', [SopController::class, 'index'])->name('index');
@@ -90,9 +138,8 @@ Route::middleware('auth')->group(function () {
 
         /**
          * =========================
-         * VERSIONS & HISTORY (ALL)
-         * Bisa diakses dari sidebar kapan pun
-         * WAJIB taruh sebelum /{sop}
+         * VERSIONS & HISTORY (GLOBAL)
+         * WAJIB sebelum /{sop}
          * =========================
          */
         Route::get('/versions', [SopController::class, 'versionsIndex'])
@@ -108,12 +155,12 @@ Route::middleware('auth')->group(function () {
             ->name('edit')
             ->middleware('role:admin,produksi');
 
-        // ✅ FIX: update SOP terima PUT & PATCH
+        // update SOP (PUT & PATCH)
         Route::match(['put', 'patch'], '/{sop}', [SopController::class, 'update'])
             ->name('update')
             ->middleware('role:admin,produksi');
 
-        // delete SOP (optional)
+        // delete SOP
         Route::delete('/{sop}', [SopController::class, 'destroy'])
             ->name('destroy')
             ->middleware('role:admin');
@@ -248,6 +295,7 @@ Route::middleware('auth')->group(function () {
     // AKSES USER (ADMIN ONLY)
     // =========================
     Route::prefix('users')->name('users.')->middleware('role:admin')->group(function () {
+
         Route::get('/', [UserController::class, 'index'])->name('index');
 
         Route::get('/create', [UserController::class, 'create'])->name('create');
@@ -263,35 +311,5 @@ Route::middleware('auth')->group(function () {
             ->name('toggle_active');
 
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
-    });
-    Route::prefix('templates')->name('templates.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\SopTemplateController::class, 'index'])
-            ->name('index')
-            ->middleware('role:admin,produksi');
-
-        Route::get('/create', [\App\Http\Controllers\SopTemplateController::class, 'create'])
-            ->name('create')
-            ->middleware('role:admin,produksi');
-
-        Route::post('/', [\App\Http\Controllers\SopTemplateController::class, 'store'])
-            ->name('store')
-            ->middleware('role:admin,produksi');
-
-        Route::get('/{template}/edit', [\App\Http\Controllers\SopTemplateController::class, 'edit'])
-            ->name('edit')
-            ->middleware('role:admin,produksi');
-
-        Route::match(['put', 'patch'], '/{template}', [\App\Http\Controllers\SopTemplateController::class, 'update'])
-            ->name('update')
-            ->middleware('role:admin,produksi');
-
-        Route::delete('/{template}', [\App\Http\Controllers\SopTemplateController::class, 'destroy'])
-            ->name('destroy')
-            ->middleware('role:admin,produksi');
-
-        // json loader
-        Route::get('/{template}/json', [\App\Http\Controllers\SopTemplateController::class, 'showJson'])
-            ->name('json')
-            ->middleware('role:admin,produksi');
     });
 });

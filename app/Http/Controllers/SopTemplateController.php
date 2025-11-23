@@ -22,13 +22,13 @@ class SopTemplateController extends Controller
         $query = SopTemplate::query()->orderByDesc('updated_at');
 
         if ($q !== '') {
-            $query->where(function($sub) use ($q){
+            $query->where(function ($sub) use ($q) {
                 $sub->where('name', 'like', "%$q%")
                     ->orWhere('code', 'like', "%$q%");
             });
         }
         if ($dept !== '') {
-            $query->where('department','like',"%$dept%");
+            $query->where('department', 'like', "%$dept%");
         }
         if ($active !== null && $active !== '') {
             $query->where('is_active', (bool)$active);
@@ -51,7 +51,7 @@ class SopTemplateController extends Controller
                 'is_active' => true,
                 'form_schema' => [],
                 'builder_schema' => [],
-                'meta' => ['extra_fields'=>[]],
+                'meta' => ['extra_fields' => []],
             ]),
         ]);
     }
@@ -68,7 +68,7 @@ class SopTemplateController extends Controller
         $tpl = SopTemplate::create($data);
 
         return redirect()->route('sop.templates.edit', $tpl)
-            ->with('success','Template SOP berhasil dibuat.');
+            ->with('success', 'Template SOP berhasil dibuat.');
     }
 
     // ==========================
@@ -89,7 +89,7 @@ class SopTemplateController extends Controller
 
         $template->update($data);
 
-        return back()->with('success','Template SOP berhasil diperbarui.');
+        return back()->with('success', 'Template SOP berhasil diperbarui.');
     }
 
     // ==========================
@@ -101,12 +101,12 @@ class SopTemplateController extends Controller
 
         // optional: blok hapus kalau template dipakai SOP
         if ($template->sops()->exists()) {
-            return back()->with('error','Template masih dipakai SOP, tidak boleh dihapus.');
+            return back()->with('error', 'Template masih dipakai SOP, tidak boleh dihapus.');
         }
 
         $template->delete();
         return redirect()->route('sop.templates.index')
-            ->with('success','Template SOP berhasil dihapus.');
+            ->with('success', 'Template SOP berhasil dihapus.');
     }
 
     // ==========================
@@ -131,31 +131,31 @@ class SopTemplateController extends Controller
     // ==========================
     // VALIDATION
     // ==========================
-    private function validatePayload(Request $request, ?SopTemplate $template=null)
+    private function validatePayload(Request $request, ?SopTemplate $template = null)
     {
         $rules = [
-            'name'        => ['required','string','max:150'],
-            'code'        => ['nullable','string','max:50'],
-            'department'  => ['nullable','string','max:100'],
-            'product'     => ['nullable','string','max:100'],
-            'line'        => ['nullable','string','max:100'],
+            'name'        => ['required', 'string', 'max:150'],
+            'code'        => ['nullable', 'string', 'max:50'],
+            'department'  => ['nullable', 'string', 'max:100'],
+            'product'     => ['nullable', 'string', 'max:100'],
+            'line'        => ['nullable', 'string', 'max:100'],
 
-            'form_schema'    => ['nullable','string'],   // JSON string
-            'builder_schema' => ['nullable','string'],   // JSON string
-            'meta'           => ['nullable','string'],   // JSON string
+            'form_schema'    => ['nullable', 'string'],   // JSON string
+            'builder_schema' => ['nullable', 'string'],   // JSON string
+            'meta'           => ['nullable', 'string'],   // JSON string
 
-            'is_active'   => ['nullable','boolean'],
+            'is_active'   => ['nullable', 'boolean'],
         ];
 
         // code unique kalau diisi
         if ($request->filled('code')) {
-            $rules['code'][] = Rule::unique('sop_templates','code')->ignore($template?->id);
+            $rules['code'][] = Rule::unique('sop_templates', 'code')->ignore($template?->id);
         }
 
         $validated = $request->validate($rules);
 
         // decode JSON
-        foreach (['form_schema','builder_schema','meta'] as $jsonKey) {
+        foreach (['form_schema', 'builder_schema', 'meta'] as $jsonKey) {
             if (!empty($validated[$jsonKey] ?? null)) {
                 $decoded = json_decode($validated[$jsonKey], true);
                 $validated[$jsonKey] = is_array($decoded) ? $decoded : null;
@@ -171,8 +171,29 @@ class SopTemplateController extends Controller
 
     private function authorizeManage()
     {
-        if (!auth()->user()->isRole(['admin','produksi'])) {
-            abort(403,'Anda tidak punya akses mengelola SOP Template.');
+        if (!auth()->user()->isRole(['admin', 'produksi'])) {
+            abort(403, 'Anda tidak punya akses mengelola SOP Template.');
         }
     }
+
+    public function show(SopTemplate $template)
+{
+    $this->authorizeManage();
+
+    // pastiin schema ada bentuk array
+    $template->form_schema = $template->form_schema ?? [];
+    $template->builder_schema = $template->builder_schema ?? [];
+    $template->meta = $template->meta ?? [];
+
+    // generate PDF dari blade
+    $pdf = \PDF::loadView('sop_templates.show_pdf', compact('template'))
+        ->setPaper('a4');
+
+    // STREAM biar bisa refresh terus & gak ke-cache
+    return response($pdf->stream("template-{$template->code}.pdf"))
+        ->header('Content-Type', 'application/pdf')
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
+}
 }
