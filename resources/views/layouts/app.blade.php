@@ -47,26 +47,53 @@
     $logoUrl  = asset($logoPath);
 
     // ================= AVATAR USER =================
+    /**
+     * FIX PHOTO LOGIC:
+     * - kalau avatar_path sudah URL (http/https) -> pakai langsung
+     * - kalau avatar_path path storage -> bersihkan dan bentuk URL:
+     *   {host}/storage/app/public/avatars/xxx.png  (sesuai kebiasaan hosting kamu)
+     * - fallback ke photo_url kalau ada
+     */
     $photo = null;
 
-    if ($user) {
-        // 1. avatar_path (utama)
-        if (!empty($user->avatar_path)) {
-            $photo = asset('storage/' . ltrim($user->avatar_path, '/'));
+    if ($user && $user->avatar_path) {
+        $p = $user->avatar_path;
 
-        // 2. avatar_url (full URL dari API luar)
-        } elseif (!empty($user->avatar_url) && str_starts_with($user->avatar_url, 'http')) {
-            $photo = $user->avatar_url;
+        // Jika avatar_path sudah URL penuh → pakai saja
+        if (\Illuminate\Support\Str::startsWith($p, ['http://','https://','//'])) {
+            $photo = $p;
+        } else {
+            // Bersihkan path yang salah:
+            // bisa berupa:
+            // - "avatars/abc.png"
+            // - "storage/avatars/abc.png"
+            // - "storage/app/public/avatars/abc.png"
+            $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($p, '/'));
 
-        // 3. photo_url (backup lama)
-        } elseif (!empty($user->photo_url) && str_starts_with($user->photo_url, 'http')) {
-            $photo = $user->photo_url;
+            // Bangun URL full pakai host sekarang (local ataupun production)
+            $host = request()->getSchemeAndHttpHost(); 
+            // contoh: http://127.0.0.1:8000 atau https://darkred-giraffe-...hostingersite.com
 
-        // 4. profile_photo_path (Laravel Jetstream / Fortify default)
-        } elseif (!empty($user->profile_photo_path)) {
-            $photo = asset('storage/' . ltrim($user->profile_photo_path, '/'));
+            // HOST kamu butuh /storage/app/public/...
+            $photo = $host . '/storage/app/public/' . $clean;
         }
+    } elseif ($user && $user->photo_url) {
+        $photo = $user->photo_url;
     }
+
+    // Helper format tanggal (INI YANG TADI HILANG)
+    $fmtDate = function ($v, $withTime = false) {
+        if (!$v) return '-';
+        try {
+            $c = \Carbon\Carbon::parse($v);
+            return $withTime
+                ? $c->format('d M Y H:i')
+                : $c->format('d M Y');
+        } catch (\Throwable $e) {
+            return $v;
+        }
+    };
+
 
     $notifCount = $notifCount ?? 0;
 
