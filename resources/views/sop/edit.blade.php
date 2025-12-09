@@ -6,7 +6,26 @@
     use Illuminate\Support\Str;
     $user = auth()->user();
 
-    // 1. DATA DB (BUILDER & EXTRA)
+    // ==========================================
+    // 1. SETUP URL HELPER (CONSISTENT LOGIC)
+    // ==========================================
+    $base = rtrim(config('app.url') ?: url('/'), '/');
+    $host = request()->getHost();
+
+    $generateUrl = function ($path) use ($base, $host) {
+        if (!$path) return null;
+        if (Str::startsWith($path, ['http://', 'https://', '//'])) return $path;
+        
+        $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($path, '/'));
+        
+        if (Str::contains($host, 'hostingersite.com')) {
+            return $base . '/storage/app/public/' . $clean;
+        } else {
+            return $base . '/storage/' . $clean;
+        }
+    };
+
+    // 2. DATA DB (BUILDER & EXTRA)
     $dbBuilder = $sop->builder_schema ?? [];
     if (is_string($dbBuilder)) $dbBuilder = json_decode($dbBuilder, true) ?: [];
 
@@ -15,15 +34,14 @@
     $dbExtra = $dbMeta['extra_fields'] ?? [];
     $dbFormValues = $dbMeta['form_values'] ?? [];
 
-    // 2. DATA OLD INPUT (Priority over DB)
+    // 3. DATA OLD INPUT (Priority over DB)
     $oldBuilder = old('builder_schema') ? json_decode(old('builder_schema'), true) : null;
     $oldExtra   = old('extra_fields') ? json_decode(old('extra_fields'), true) : null;
     $oldForm    = old('form_values');
 
-    // 3. FINAL INIT DATA
+    // 4. FINAL INIT DATA
     $initBuilder = $oldBuilder ?? $dbBuilder;
     if (empty($initBuilder)) {
-        // Default minimal 1 section
         $initBuilder = [[
             'id' => (string)Str::uuid(),
             'name' => 'Section 1',
@@ -35,13 +53,12 @@
     if (empty($initExtra)) {
         $initExtra = [['id' => (string)Str::uuid(), 'label' => '', 'value' => '']];
     } else {
-        // Ensure ID exists for Alpine key
         foreach($initExtra as $k => $v) {
             if(!isset($v['id'])) $initExtra[$k]['id'] = (string)Str::uuid();
         }
     }
 
-    // 4. PHOTOS (Hanya dari DB, input file tidak bisa di-repopulate via old)
+    // 5. PHOTOS (Menggunakan Helper URL)
     $rawPhotos = $sop->photos ?? [];
     if (is_string($rawPhotos)) $rawPhotos = json_decode($rawPhotos, true) ?: [];
     $initPhotos = [];
@@ -49,50 +66,56 @@
         $path = $p['path'] ?? ($p['url'] ?? null);
         if (!$path) continue;
         
-        $url = Str::startsWith($path, ['http','//']) 
-            ? $path 
-            : asset('storage/' . preg_replace('#^storage/#', '', $path));
+        $url = $generateUrl($path); // Generate URL aman
 
         $initPhotos[] = [
             'id' => (string)Str::uuid(),
             'name' => $path,
-            'preview' => $url, // Untuk display
-            '__path' => $path, // Penanda ini foto lama
+            'preview' => $url,
+            '__path' => $path,
             'desc' => $p['desc'] ?? ''
         ];
     }
 
-    // 5. RAW MATERIALS (Complex Merge)
+    // 6. RAW MATERIALS (Menggunakan Helper URL)
     $dbMaterials = $sop->rawMaterials; 
-    $oldMaterials = old('raw_materials'); // Array structure form submit
+    $oldMaterials = old('raw_materials'); 
 
     $initRawMaterials = [];
 
     if ($oldMaterials && is_array($oldMaterials)) {
         // KASUS: Error Validasi -> Pakai input user
         foreach ($oldMaterials as $index => $oldItem) {
-            // Kita coba cari data asli di DB supaya URL gambarnya tidak hilang
-            // jika user TIDAK mengupload gambar baru
             $originalId = $oldItem['id'] ?? null;
             $originalRec = $originalId ? $dbMaterials->find($originalId) : null;
+            
+            // Generate URL jika record asli ada
+            $existingUrl = null;
+            if($originalRec && $originalRec->image_path) {
+                $existingUrl = $generateUrl($originalRec->image_path);
+            } elseif ($originalRec && $originalRec->image_url) {
+                $existingUrl = $originalRec->image_url;
+            }
 
             $initRawMaterials[] = [
-                'id' => $originalId, // ID null berarti item baru
+                'id' => $originalId, 
                 'alpine_id' => (string)Str::uuid(),
                 'name' => $oldItem['name'] ?? '',
                 'amount' => $oldItem['amount'] ?? '',
                 'unit' => $oldItem['unit'] ?? 'kg',
                 'notes' => $oldItem['notes'] ?? '',
-                // Pertahankan gambar lama jika ada record DB-nya
-                'image_url' => $originalRec ? $originalRec->image_url : null,
+                'image_url' => $existingUrl, // Pakai URL yang sudah digenerate
                 'image_path' => $originalRec ? $originalRec->image_path : null,
-                'new_image_preview' => null, // Reset preview upload baru karena file input reset
+                'new_image_preview' => null, 
                 'is_deleted' => false
             ];
         }
     } else {
         // KASUS: Load Normal -> Pakai DB
         foreach ($dbMaterials as $rm) {
+            // Cek path dulu, baru fallback ke url lama
+            $url = $rm->image_path ? $generateUrl($rm->image_path) : $rm->image_url;
+
             $initRawMaterials[] = [
                 'id' => $rm->id,
                 'alpine_id' => (string)Str::uuid(),
@@ -100,7 +123,7 @@
                 'amount' => $rm->amount,
                 'unit' => $rm->unit,
                 'notes' => $rm->notes,
-                'image_url' => $rm->image_url,
+                'image_url' => $url, // Pakai URL yang sudah digenerate
                 'image_path' => $rm->image_path,
                 'new_image_preview' => null,
                 'is_deleted' => false
@@ -108,7 +131,6 @@
         }
     }
     
-    // Jika kosong sama sekali, kasih 1 baris
     if (empty($initRawMaterials)) {
         $initRawMaterials[] = [
             'id' => null,
@@ -119,7 +141,6 @@
         ];
     }
 
-    // Helper Form Value
     $fv = function($key) use ($oldForm, $dbFormValues) {
         return $oldForm[$key] ?? ($dbFormValues[$key] ?? '');
     };
@@ -138,8 +159,8 @@
     
     builderSections: {{ json_encode($initBuilder) }},
     extraFields: {{ json_encode($initExtra) }},
-    photos: {{ json_encode($initPhotos) }}, // Foto Lama
-    newPhotos: [], // Foto Baru yang akan diupload (Multi-upload logic beda)
+    photos: {{ json_encode($initPhotos) }}, 
+    newPhotos: [], 
     
     rawMaterials: {{ json_encode($initRawMaterials) }},
 
@@ -171,11 +192,7 @@
         if (this.extraFields.length > 1) this.extraFields.splice(index, 1);
     },
 
-    // --- FOTO UTAMA SOP (LOGIC EDIT: Foto lama + Foto baru) ---
-    // photos = Existing photos (bisa dicentang hapus via blade loop, atau managed via alpine)
-    // Disini kita pakai approach Blade loop untuk 'remove_photos' (seperti code Anda yg sebelumnya)
-    // dan 'newPhotos' untuk upload tambahan.
-    
+    // --- FOTO UTAMA SOP ---
     addNewPhoto() {
         this.newPhotos.push({ id: Date.now(), name: '', preview: null });
     },
@@ -193,7 +210,7 @@
     // --- RAW MATERIALS ---
     addRawMaterial() {
         this.rawMaterials.push({
-            id: null, // null = new
+            id: null, 
             alpine_id: Date.now(),
             name: '', amount: '', unit: 'kg', notes: '',
             image_url: null, image_path: null, new_image_preview: null,
@@ -201,9 +218,6 @@
         });
     },
     deleteRawMaterial(index) {
-        // Soft delete di UI (hidden input is_deleted bisa ditangani controller, 
-        // atau cukup dengan tidak merender inputnya)
-        // Cara paling aman untuk EDIT adalah flagging.
         this.rawMaterials[index].is_deleted = true;
     },
     handleRawMatImage(e, index) {
@@ -339,11 +353,6 @@
                 <div class="space-y-3">
                     <template x-for="(mat, idx) in rawMaterials" :key="mat.alpine_id">
                         <div x-show="!mat.is_deleted" class="border border-slate-200 rounded-lg p-3 bg-slate-50/40 relative">
-                            
-                            {{-- LOGIC HAPUS: Jika ID ada, kita kirim ID tapi tandai delete nanti di controller 
-                                 Atau cara simple: jika is_deleted true, input tidak dirender, maka tidak terkirim ke server.
-                                 Controller harus mendeteksi ID yg hilang = hapus. --}}
-                            
                             <template x-if="!mat.is_deleted">
                                 <div>
                                     <input type="hidden" :name="'raw_materials['+idx+'][id]'" :value="mat.id">
@@ -373,7 +382,6 @@
 
                                     <div class="flex items-center justify-between mt-3 pt-2 border-t border-slate-200/60">
                                         <div class="flex items-center gap-3">
-                                            {{-- Preview Image --}}
                                             <div class="h-10 w-10 rounded bg-white border border-slate-200 overflow-hidden flex-shrink-0">
                                                 <template x-if="mat.new_image_preview">
                                                     <img :src="mat.new_image_preview" class="h-full w-full object-cover">
@@ -406,13 +414,11 @@
                 </div>
             </div>
 
-            {{-- 3. BUILDER SECTION (Disederhanakan untuk brevity) --}}
+            {{-- 3. BUILDER SECTION --}}
             <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4 mb-4">
                 <div class="flex items-center justify-between mb-3">
                     <div class="text-xs font-semibold text-[#05727d]">SOP Builder</div>
-                    <button type="button" @click="addSection()" class="text-[11px] bg-[#05727d] text-white px-2 py-1 rounded">
-                        + Section
-                    </button>
+                    <button type="button" @click="addSection()" class="text-[11px] bg-[#05727d] text-white px-2 py-1 rounded">+ Section</button>
                 </div>
                 <template x-for="(section, sIdx) in builderSections" :key="section.id">
                     <div class="bg-white border border-slate-200 rounded-lg p-3 mb-3">
@@ -438,7 +444,7 @@
                 </template>
             </div>
 
-            {{-- 4. EXTRA FIELDS (Sama seperti create) --}}
+            {{-- 4. EXTRA FIELDS --}}
             <div class="bg-white border border-[#05727d]/20 rounded-xl p-4 mb-4">
                 <div class="flex items-center justify-between mb-3">
                     <div class="text-xs font-semibold text-[#05727d]">Extra Fields</div>
@@ -455,11 +461,9 @@
                 </div>
             </div>
 
-            {{-- 5. FOTO SOP (LAMA & BARU) --}}
+            {{-- 5. FOTO SOP --}}
             <div class="bg-white border border-[#05727d]/20 rounded-xl p-4 mb-4">
                 <div class="text-xs font-semibold text-[#05727d] mb-3">Foto SOP</div>
-                
-                {{-- Foto Lama --}}
                 @if(count($initPhotos))
                     <div class="mb-3">
                         <div class="text-[10px] text-slate-500 mb-2">Foto Lama (Centang untuk hapus):</div>
@@ -476,8 +480,6 @@
                         </div>
                     </div>
                 @endif
-
-                {{-- Foto Baru --}}
                 <div class="space-y-2">
                     <template x-for="(ph, idx) in newPhotos" :key="ph.id">
                         <div class="flex gap-2 items-center text-xs border p-2 rounded bg-slate-50">
