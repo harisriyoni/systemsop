@@ -15,7 +15,7 @@
 <div class="space-y-4">
 
   {{-- ===== HEADER ===== --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm p-5">
+  <div class="bg-white rounded-2xl border border-[#05727d]/10 shadow-sm p-5">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
         <h2 class="text-base font-semibold text-slate-900">
@@ -23,7 +23,7 @@
         </h2>
         <p class="text-xs text-slate-500 mt-1">
           Kode SOP:
-          <span class="font-semibold text-blue-700">{{ $sop->code }}</span>
+          <span class="font-semibold text-[#05727d]">{{ $sop->code }}</span>
           • Total versi: <span class="font-semibold">{{ $versions->count() }}</span>
         </p>
         <p class="text-[11px] text-slate-400 mt-1">
@@ -35,7 +35,7 @@
         @if(Route::has('sop.show'))
           <a href="{{ route('sop.show', $sop) }}"
              class="inline-flex items-center px-4 py-2 rounded-xl
-                    bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition">
+                    bg-[#05727d] hover:bg-[#05727d]/95 text-white text-xs font-semibold shadow-sm transition">
             Kembali ke Detail
           </a>
         @endif
@@ -44,10 +44,10 @@
   </div>
 
   {{-- ===== LIST / TABLE VERSIONS ===== --}}
-  <div class="bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
+  <div class="bg-white rounded-2xl border border-[#05727d]/10 shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
       <table class="min-w-full text-xs bg-white">
-        <thead class="bg-blue-50 text-blue-700 text-[11px] uppercase tracking-wider">
+        <thead class="bg-[#05727d]/5 text-[#05727d] text-[11px] uppercase tracking-wider">
           <tr>
             <th class="px-4 py-3 text-left whitespace-nowrap">Versi</th>
             <th class="px-4 py-3 text-left">Judul & Info</th>
@@ -58,13 +58,13 @@
           </tr>
         </thead>
 
-        <tbody class="divide-y divide-blue-50">
+        <tbody class="divide-y divide-[#05727d]/8">
           @forelse($versions as $v)
             @php
               $isCurrent = $v->id === $currentId;
             @endphp
 
-            <tr class="hover:bg-blue-50/40 transition {{ $isCurrent ? 'bg-blue-50/30' : '' }}">
+            <tr class="hover:bg-[#05727d]/6 transition {{ $isCurrent ? 'bg-[#05727d]/8' : '' }}">
               {{-- VERSI --}}
               <td class="px-4 py-3 whitespace-nowrap align-top">
                 <div class="font-semibold text-slate-900 flex items-center gap-2">
@@ -72,7 +72,7 @@
 
                   @if($isCurrent)
                     <span class="px-2 py-0.5 rounded-full text-[10px]
-                                 bg-blue-600 text-white border border-blue-600">
+                                 bg-[#05727d] text-white border border-[#05727d]">
                       Versi Aktif
                     </span>
                   @endif
@@ -107,7 +107,7 @@
 
                 <div class="mt-2 flex items-center gap-1.5 text-[11px]">
                   <span class="px-2 py-0.5 rounded-full border
-                    {{ $v->is_public ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200' }}">
+                    {{ $v->is_public ? 'bg-[#05727d]/10 text-[#05727d] border-[#05727d]/20' : 'bg-slate-50 text-slate-600 border-slate-200' }}">
                     {{ $v->is_public ? 'Publik' : 'Privat' }}
                   </span>
 
@@ -126,8 +126,8 @@
               {{-- STATUS --}}
               <td class="px-4 py-3 whitespace-nowrap align-top">
                 <span class="inline-flex items-center px-2.5 py-1 rounded-full border
-                             text-[11px] font-semibold {{ $v->status_badge_class }}">
-                  {{ $v->status_label }}
+                             text-[11px] font-semibold {{ $v->status_badge_class ?? 'bg-slate-50 text-slate-700 border-slate-200' }}">
+                  {{ $v->status_label ?? ucfirst($v->status) }}
                 </span>
 
                 <div class="mt-2 grid gap-1 text-[11px] text-slate-500">
@@ -181,8 +181,8 @@
                   @if(Route::has('sop.show'))
                     <a href="{{ route('sop.show', $v) }}"
                        class="inline-flex items-center px-3 py-1.5 rounded-lg
-                              bg-white border border-blue-200 text-blue-700
-                              hover:bg-blue-50 font-semibold text-[11px] transition">
+                              bg-white border border-[#05727d]/10 text-[#05727d]
+                              hover:bg-[#05727d]/5 font-semibold text-[11px] transition">
                       Lihat Versi Ini
                     </a>
                   @endif
