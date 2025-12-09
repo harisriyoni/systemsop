@@ -61,17 +61,17 @@ class SopController extends Controller
 
         // default schema core
         $defaultFormSchema = [
-            ['key'=>'code','label'=>'Kode SOP','type'=>'text','required'=>true,'visible'=>true,'is_core'=>true],
-            ['key'=>'title','label'=>'Judul SOP','type'=>'text','required'=>true,'visible'=>true,'is_core'=>true],
-            ['key'=>'department','label'=>'Departemen','type'=>'select','options'=>['Produksi','QA','Logistik'],'required'=>true,'visible'=>true,'is_core'=>true],
-            ['key'=>'product','label'=>'Produk','type'=>'text','required'=>false,'visible'=>true,'is_core'=>true],
-            ['key'=>'line','label'=>'Line Produksi','type'=>'text','required'=>false,'visible'=>true,'is_core'=>true],
-            ['key'=>'effective_from','label'=>'Tanggal Berlaku Dari','type'=>'date','required'=>false,'visible'=>true,'is_core'=>true],
-            ['key'=>'effective_to','label'=>'Tanggal Berlaku Sampai','type'=>'date','required'=>false,'visible'=>false,'is_core'=>true],
-            ['key'=>'is_public','label'=>'Tersedia untuk Publik','type'=>'checkbox','required'=>false,'visible'=>true,'is_core'=>true],
-            ['key'=>'pin','label'=>'PIN Akses (Opsional)','type'=>'text','required'=>false,'visible'=>true,'is_core'=>true],
+            ['key' => 'code', 'label' => 'Kode SOP', 'type' => 'text', 'required' => true, 'visible' => true, 'is_core' => true],
+            ['key' => 'title', 'label' => 'Judul SOP', 'type' => 'text', 'required' => true, 'visible' => true, 'is_core' => true],
+            ['key' => 'department', 'label' => 'Departemen', 'type' => 'select', 'options' => ['Produksi', 'QA', 'Logistik'], 'required' => true, 'visible' => true, 'is_core' => true],
+            ['key' => 'product', 'label' => 'Produk', 'type' => 'text', 'required' => false, 'visible' => true, 'is_core' => true],
+            ['key' => 'line', 'label' => 'Line Produksi', 'type' => 'text', 'required' => false, 'visible' => true, 'is_core' => true],
+            ['key' => 'effective_from', 'label' => 'Tanggal Berlaku Dari', 'type' => 'date', 'required' => false, 'visible' => true, 'is_core' => true],
+            ['key' => 'effective_to', 'label' => 'Tanggal Berlaku Sampai', 'type' => 'date', 'required' => false, 'visible' => false, 'is_core' => true],
+            ['key' => 'is_public', 'label' => 'Tersedia untuk Publik', 'type' => 'checkbox', 'required' => false, 'visible' => true, 'is_core' => true],
+            ['key' => 'pin', 'label' => 'PIN Akses (Opsional)', 'type' => 'text', 'required' => false, 'visible' => true, 'is_core' => true],
 
-            ['key'=>'meta.mesin','label'=>'Nama Mesin','type'=>'text','required'=>false,'visible'=>false,'is_core'=>false],
+            ['key' => 'meta.mesin', 'label' => 'Nama Mesin', 'type' => 'text', 'required' => false, 'visible' => false, 'is_core' => false],
         ];
 
         $defaultBuilderSchema = [];
@@ -85,7 +85,7 @@ class SopController extends Controller
         // prefill dari template
         if ($selectedTemplate) {
             $defaultFormSchema   = $selectedTemplate->form_schema ?: $defaultFormSchema;
-            $defaultBuilderSchema= $selectedTemplate->builder_schema ?: [];
+            $defaultBuilderSchema = $selectedTemplate->builder_schema ?: [];
         }
 
         return view('sop.create', [
@@ -110,28 +110,37 @@ class SopController extends Controller
 
         // 2) validasi core + template_id
         $request->validate([
-            'template_id'    => ['nullable','integer','exists:sop_templates,id'],
+            'template_id'    => ['nullable', 'integer', 'exists:sop_templates,id'],
 
-            'code'           => ['required','string','max:50','unique:sops,code'],
-            'title'          => ['required','string','max:255'],
-            'department'     => ['required','string','max:100'],
-            'product'        => ['nullable','string','max:100'],
-            'line'           => ['nullable','string','max:100'],
-            'content'        => ['nullable','string'],
-            'effective_from' => ['nullable','date'],
-            'effective_to'   => ['nullable','date','after_or_equal:effective_from'],
-            'is_public'      => ['nullable','boolean'],
-            'pin'            => ['nullable','string','max:20'],
+            'code'           => ['required', 'string', 'max:50', 'unique:sops,code'],
+            'title'          => ['required', 'string', 'max:255'],
+            'department'     => ['required', 'string', 'max:100'],
+            'product'        => ['nullable', 'string', 'max:100'],
+            'line'           => ['nullable', 'string', 'max:100'],
+            'content'        => ['nullable', 'string'],
+            'effective_from' => ['nullable', 'date'],
+            'effective_to'   => ['nullable', 'date', 'after_or_equal:effective_from'],
+            'is_public'      => ['nullable', 'boolean'],
+            'pin'            => ['nullable', 'string', 'max:20'],
 
-            'photos'         => ['nullable','array','max:10'],
-            'photos.*'       => ['image','mimes:jpg,jpeg,png,webp','max:4096'],
-            'photo_desc'     => ['nullable','array'],
-            'photo_desc.*'   => ['nullable','string','max:255'],
+            'photos'         => ['nullable', 'array', 'max:10'],
+            'photos.*'       => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'photo_desc'     => ['nullable', 'array'],
+            'photo_desc.*'   => ['nullable', 'string', 'max:255'],
         ]);
 
         $coreFields = [
-            'code','title','department','product','line',
-            'content','effective_from','effective_to','is_public','pin','template_id'
+            'code',
+            'title',
+            'department',
+            'product',
+            'line',
+            'content',
+            'effective_from',
+            'effective_to',
+            'is_public',
+            'pin',
+            'template_id'
         ];
         $data = $request->only($coreFields);
         $data['is_public'] = $request->boolean('is_public');
@@ -148,6 +157,7 @@ class SopController extends Controller
         }
 
         // 3) normalisasi extra_fields → meta
+        // 3) normalisasi extra_fields → meta
         $normalizedExtra = [];
         foreach ($extraFields as $row) {
             if (!is_array($row)) continue;
@@ -163,11 +173,29 @@ class SopController extends Controller
             ];
         }
 
+        // --- Ambil form_values (field dinamis) dari request ---
+        // Expect: form_values is array, keys like 'lot_name','operator_name', dll.
+        $formValues = $request->input('form_values', []);
+        if (!is_array($formValues)) $formValues = [];
+
+        // Normalisasi sederhana: trim string values (jaga supaya tetap simple)
+        foreach ($formValues as $k => $v) {
+            if (is_string($v)) $formValues[$k] = trim($v);
+        }
+
+        // optional: validasi ringan untuk dua field spesifik (boleh hapus/ubah)
+        $request->validate([
+            'form_values.lot_name'      => ['nullable', 'string', 'max:150'],
+            'form_values.operator_name' => ['nullable', 'string', 'max:150'],
+        ]);
+
         $meta = [
             'extra_fields'   => $normalizedExtra,
             'builder_schema' => $builderSchema,
+            'form_values'    => $formValues, // <--- simpan di meta
             'logs'           => [],
         ];
+
 
         // 4) upload foto
         $photos = $this->handlePhotosUpload($request);
@@ -197,7 +225,7 @@ class SopController extends Controller
         $this->authorizeManage();
         $templates = SopTemplate::where('is_active', true)->orderBy('name')->get();
 
-        return view('sop.edit', compact('sop','templates'));
+        return view('sop.edit', compact('sop', 'templates'));
     }
 
     public function update(Request $request, Sop $sop)
@@ -243,8 +271,24 @@ class SopController extends Controller
         }
 
         $meta = is_array($sop->meta) ? $sop->meta : (json_decode($sop->meta, true) ?: []);
+
+        // ambil form_values dari request dan normalisasi (prioritas data request)
+        $formValues = $request->input('form_values', []);
+        if (!is_array($formValues)) $formValues = [];
+        foreach ($formValues as $k => $v) {
+            if (is_string($v)) $formValues[$k] = trim($v);
+        }
+
+        // validasi ringan (sama seperti di store)
+        $request->validate([
+            'form_values.lot_name'      => ['nullable', 'string', 'max:150'],
+            'form_values.operator_name' => ['nullable', 'string', 'max:150'],
+        ]);
+
         $meta['extra_fields']   = $normalizedExtra;
         $meta['builder_schema'] = $builderSchema;
+        $meta['form_values']    = $formValues;
+
 
         // append log kecil (optional)
         $meta['logs'] = is_array($meta['logs'] ?? null) ? $meta['logs'] : [];
@@ -466,12 +510,14 @@ class SopController extends Controller
     // ✅ JSON SOP (BUAT IMPORT KE TEMPLATE)
     // terima ID atau CODE
     // ==========================
-         public function showJson(Sop $sop)
+    public function showJson(Sop $sop)
     {
         // ==== Normalisasi JSON field ====
         $formSchema    = $sop->form_schema ?? [];
         $builderSchema = $sop->builder_schema ?? [];
         $meta          = $sop->meta ?? [];
+        $formValues = is_array($meta['form_values'] ?? null) ? $meta['form_values'] : [];
+
 
         if (is_string($formSchema)) {
             $formSchema = json_decode($formSchema, true) ?: [];
@@ -507,7 +553,7 @@ class SopController extends Controller
             }
 
             // Kalau sudah URL full, pakai langsung
-            $isHttp = \Illuminate\Support\Str::startsWith($path, ['http://','https://','//']);
+            $isHttp = \Illuminate\Support\Str::startsWith($path, ['http://', 'https://', '//']);
             if ($isHttp) {
                 $url = $path;
             } else {
@@ -516,10 +562,10 @@ class SopController extends Controller
 
                 if (app()->environment('local')) {
                     // LOCAL: standar Laravel -> public/storage/...
-                    $publicPath = 'storage/'.$cleanPath;
+                    $publicPath = 'storage/' . $cleanPath;
                 } else {
                     // PRODUKSI (Hostinger dsb): storage/app/public/...
-                    $publicPath = 'storage/app/public/'.$cleanPath;
+                    $publicPath = 'storage/app/public/' . $cleanPath;
                 }
 
                 $url = asset($publicPath);
@@ -555,6 +601,7 @@ class SopController extends Controller
             'form_schema'    => $formSchema,
             'builder_schema' => $builderSchema,
             'meta'           => $meta,
+            'form_values'    => $formValues,
 
             // Foto yang sudah punya URL siap pakai (INI yang dipakai Canvas)
             'photos'      => $photos,
@@ -587,10 +634,10 @@ class SopController extends Controller
         if (!$sop->is_public || $sop->status !== 'approved') abort(404);
         if (!$sop->pin) return redirect()->route('sop.public.show', $sop);
 
-        $request->validate(['pin' => ['required','string','max:20']]);
+        $request->validate(['pin' => ['required', 'string', 'max:20']]);
 
         if ($request->pin !== $sop->pin) {
-            return back()->with('error','PIN salah.');
+            return back()->with('error', 'PIN salah.');
         }
 
         $sessionKey = "sop_unlocked_{$sop->id}";
@@ -601,7 +648,7 @@ class SopController extends Controller
     public function publicAck(Request $request, Sop $sop)
     {
         if (!$sop->is_public || $sop->status !== 'approved') abort(404);
-        return back()->with('success','Terima kasih, sudah mengkonfirmasi SOP.');
+        return back()->with('success', 'Terima kasih, sudah mengkonfirmasi SOP.');
     }
 
     // ==========================
@@ -629,11 +676,11 @@ class SopController extends Controller
             $qrUrl = Storage::disk('public')->url($qrPath);
         }
 
-        if (Schema::hasColumn('sops','qr_path')) $sop->qr_path = $qrPath;
-        if (Schema::hasColumn('sops','qr_url'))  $sop->qr_url  = $qrUrl;
+        if (Schema::hasColumn('sops', 'qr_path')) $sop->qr_path = $qrPath;
+        if (Schema::hasColumn('sops', 'qr_url'))  $sop->qr_url  = $qrUrl;
 
         $sop->save();
-        return back()->with('success','QR SOP berhasil dibuat.');
+        return back()->with('success', 'QR SOP berhasil dibuat.');
     }
 
     // ==========================
@@ -647,14 +694,14 @@ class SopController extends Controller
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sop.pdf', [
                 'sop' => $sop,
                 'generatedAt' => now(),
-            ])->setPaper('a4','portrait');
+            ])->setPaper('a4', 'portrait');
 
             $filename = ($sop->code ?? 'sop') . '_v' . ($sop->version ?? 1) . '.pdf';
             return $pdf->download($filename);
         }
 
-        return redirect()->route('sop.show',$sop)
-            ->with('error','Export PDF belum aktif (Dompdf belum terpasang).');
+        return redirect()->route('sop.show', $sop)
+            ->with('error', 'Export PDF belum aktif (Dompdf belum terpasang).');
     }
 
     // ==========================
@@ -671,7 +718,7 @@ class SopController extends Controller
         $query = Sop::query()
             ->joinSub($sub, 'mx', function ($join) {
                 $join->on('sops.code', '=', 'mx.code')
-                     ->on('sops.version', '=', 'mx.max_version');
+                    ->on('sops.version', '=', 'mx.max_version');
             })
             ->select('sops.*')
             ->orderByDesc('sops.updated_at');
@@ -680,7 +727,7 @@ class SopController extends Controller
             $keyword = trim($request->q);
             $query->where(function ($subq) use ($keyword) {
                 $subq->where('sops.code', 'like', "%{$keyword}%")
-                     ->orWhere('sops.title', 'like', "%{$keyword}%");
+                    ->orWhere('sops.title', 'like', "%{$keyword}%");
             });
         }
 
@@ -698,7 +745,7 @@ class SopController extends Controller
             $keyword = trim($request->q);
             $query->where(function ($subq) use ($keyword) {
                 $subq->where('code', 'like', "%{$keyword}%")
-                     ->orWhere('sops.title', 'like', "%{$keyword}%");
+                    ->orWhere('sops.title', 'like', "%{$keyword}%");
             });
         }
 
@@ -717,7 +764,7 @@ class SopController extends Controller
             ->orderByDesc('version')
             ->get();
 
-        return view('sop.versions', compact('sop','versions'));
+        return view('sop.versions', compact('sop', 'versions'));
     }
 
     public function history(Sop $sop)
@@ -727,7 +774,7 @@ class SopController extends Controller
         $meta = is_array($sop->meta) ? $sop->meta : (json_decode($sop->meta, true) ?: []);
         $logs = $meta['logs'] ?? [];
 
-        return view('sop.history', compact('sop','logs'));
+        return view('sop.history', compact('sop', 'logs'));
     }
 
     // ==========================
@@ -736,34 +783,40 @@ class SopController extends Controller
     private function validatePayload(Request $request, ?Sop $sop = null)
     {
         $rules = [
-            'template_id'    => ['nullable','integer','exists:sop_templates,id'],
+            'template_id'    => ['nullable', 'integer', 'exists:sop_templates,id'],
 
-            'code'           => ['required','string','max:50'],
-            'title'          => ['required','string','max:255'],
-            'department'     => ['required','string','max:100'],
-            'product'        => ['nullable','string','max:100'],
-            'line'           => ['nullable','string','max:100'],
-            'content'        => ['nullable','string'],
-            'effective_from' => ['nullable','date'],
-            'effective_to'   => ['nullable','date','after_or_equal:effective_from'],
+            'code'           => ['required', 'string', 'max:50'],
+            'title'          => ['required', 'string', 'max:255'],
+            'department'     => ['required', 'string', 'max:100'],
+            'product'        => ['nullable', 'string', 'max:100'],
+            'line'           => ['nullable', 'string', 'max:100'],
+            'content'        => ['nullable', 'string'],
+            'effective_from' => ['nullable', 'date'],
+            'effective_to'   => ['nullable', 'date', 'after_or_equal:effective_from'],
 
-            'photos'         => ['nullable','array','max:10'],
-            'photos.*'       => ['image','mimes:jpg,jpeg,png,webp','max:4096'],
-            'photo_desc'     => ['nullable','array'],
-            'photo_desc.*'   => ['nullable','string','max:255'],
+            'photos'         => ['nullable', 'array', 'max:10'],
+            'photos.*'       => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'photo_desc'     => ['nullable', 'array'],
+            'photo_desc.*'   => ['nullable', 'string', 'max:255'],
 
-            'builder_schema' => ['nullable','string'],
-            'extra_fields'   => ['nullable','string'],
+            'builder_schema' => ['nullable', 'string'],
+            'extra_fields'   => ['nullable', 'string'],
 
-            'pin'            => ['nullable','string','max:20'],
-            'is_public'      => ['nullable','boolean'],
+            // dynamic form values
+            'form_values'    => ['nullable', 'array'],
+            'form_values.*'  => ['nullable', 'string', 'max:1000'],
+
+            'pin'            => ['nullable', 'string', 'max:20'],
+            'is_public'      => ['nullable', 'boolean'],
         ];
 
         if ($sop && $sop->status !== 'approved') {
             $rules['code'] = [
-                'required','string','max:50',
-                Rule::unique('sops','code')
-                    ->where(fn($q) => $q->where('version',$sop->version))
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('sops', 'code')
+                    ->where(fn($q) => $q->where('version', $sop->version))
                     ->ignore($sop->id),
             ];
         }
@@ -787,13 +840,17 @@ class SopController extends Controller
 
     private function applyTemplateToData(array $data, SopTemplate $tpl): array
     {
-        // kalau user kosongin department/product/line/content,
-        // kita isi default dari template
-        foreach (['department','product','line','content'] as $f) {
-            if (empty($data[$f]) && !empty($tpl->{$f})) {
-                $data[$f] = $tpl->{$f};
+        // merge form_values dari template (jika template menyimpan default di meta.form_values)
+        $tplFormValues = is_array($tpl->meta['form_values'] ?? null) ? $tpl->meta['form_values'] : [];
+        $dataFormValues = $data['form_values'] ?? [];
+
+        foreach ($tplFormValues as $k => $v) {
+            if ((empty($dataFormValues[$k]) || $dataFormValues[$k] === '') && !empty($v)) {
+                $dataFormValues[$k] = $v;
             }
         }
+        $data['form_values'] = $dataFormValues;
+
 
         // default public/pin dari template jika user ga set
         if (!array_key_exists('is_public', $data) || is_null($data['is_public'])) {
@@ -829,22 +886,22 @@ class SopController extends Controller
 
     private function authorizeManage()
     {
-        if (!auth()->user()->isRole(['admin','produksi'])) {
-            abort(403,'Anda tidak punya akses mengelola SOP.');
+        if (!auth()->user()->isRole(['admin', 'produksi'])) {
+            abort(403, 'Anda tidak punya akses mengelola SOP.');
         }
     }
 
     private function authorizeView()
     {
         if (!auth()->check()) {
-            abort(403,'Anda tidak punya akses.');
+            abort(403, 'Anda tidak punya akses.');
         }
     }
 
     private function authorizeApprover()
     {
-        if (!auth()->user()->isRole(['admin','produksi','qa','logistik'])) {
-            abort(403,'Anda tidak punya akses.');
+        if (!auth()->user()->isRole(['admin', 'produksi', 'qa', 'logistik'])) {
+            abort(403, 'Anda tidak punya akses.');
         }
     }
 

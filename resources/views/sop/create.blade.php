@@ -3,7 +3,71 @@
 
 @section('content')
 
-@php $user = auth()->user(); @endphp
+@php
+    $user = auth()->user();
+
+    // ----- Prefill helpers (safe for create & edit) -----
+    // sop meta (if editing)
+    $sopMeta = [];
+    if (isset($sop) && !empty($sop->meta)) {
+        $sopMeta = is_array($sop->meta) ? $sop->meta : (json_decode($sop->meta, true) ?: []);
+    }
+
+    // template meta (if selecting template)
+    $tplMeta = [];
+    if (isset($selectedTemplate) && !empty($selectedTemplate->meta)) {
+        $tplMeta = is_array($selectedTemplate->meta) ? $selectedTemplate->meta : (json_decode($selectedTemplate->meta, true) ?: []);
+    }
+
+    // helper to pick value: old > sop.meta.form_values > template.meta.form_values > default
+    $oldFormValues = old('form_values', []);
+    $fv = function($key, $default = '') use ($oldFormValues, $sopMeta, $tplMeta) {
+        if (is_array($oldFormValues) && array_key_exists($key, $oldFormValues)) return $oldFormValues[$key];
+        if (!empty($sopMeta['form_values'][$key] ?? null)) return $sopMeta['form_values'][$key];
+        if (!empty($tplMeta['form_values'][$key] ?? null)) return $tplMeta['form_values'][$key];
+        return $default;
+    };
+
+    // ----- Init JSON for Alpine (builderSections + extraFields + photos) -----
+    // builder schema: prefer old input -> selectedTemplate -> sop
+    $initBuilderRaw = old('builder_schema')
+        ?? ($selectedTemplate->builder_schema ?? ($sop->builder_schema ?? null));
+
+    if (is_string($initBuilderRaw) && $initBuilderRaw !== '') {
+        $initBuilderArr = json_decode($initBuilderRaw, true) ?: [];
+    } elseif (is_array($initBuilderRaw)) {
+        $initBuilderArr = $initBuilderRaw;
+    } else {
+        $initBuilderArr = [];
+    }
+
+    // extra fields: old -> selectedTemplate.meta.extra_fields -> sop.meta.extra_fields
+    $initExtraRaw = old('extra_fields')
+        ?? ($tplMeta['extra_fields'] ?? ($sopMeta['extra_fields'] ?? null));
+
+    if (is_string($initExtraRaw) && $initExtraRaw !== '') {
+        $initExtraArr = json_decode($initExtraRaw, true) ?: [];
+    } elseif (is_array($initExtraRaw)) {
+        $initExtraArr = $initExtraRaw;
+    } else {
+        $initExtraArr = [];
+    }
+
+    // photos: prefer old posted (not trivial) -> sop photos
+    $initPhotosRaw = $sop->photos ?? null;
+    if (is_string($initPhotosRaw) && $initPhotosRaw !== '') {
+        $initPhotosArr = json_decode($initPhotosRaw, true) ?: [];
+    } elseif (is_array($initPhotosRaw)) {
+        $initPhotosArr = $initPhotosRaw;
+    } else {
+        $initPhotosArr = [];
+    }
+
+    // safe JSON encoding for inlining into x-init
+    $initBuilderJson = json_encode($initBuilderArr, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT);
+    $initExtraJson   = json_encode($initExtraArr,   JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT);
+    $initPhotosJson  = json_encode($initPhotosArr,  JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT);
+@endphp
 
 <div
   x-data="{
@@ -122,6 +186,29 @@
       }
     },
   }"
+  x-init="
+    // init builderSections / extraFields / photos from server (if available)
+    (() => {
+      try {
+        const b = {{ $initBuilderJson ?: 'null' }};
+        const e = {{ $initExtraJson ?: 'null' }};
+        const p = {{ $initPhotosJson ?: 'null' }};
+
+        if (Array.isArray(b) && b.length) this.builderSections = b;
+        if (Array.isArray(e) && e.length) {
+          // normalisasi id di extraFields untuk Alpine reactivity
+          this.extraFields = e.map((r) => ({ id: Date.now() + Math.random(), label: r.label ?? '', value: r.value ?? '' }));
+        }
+        if (Array.isArray(p) && p.length) {
+          // for existing photos we don't set preview but keep placeholders with path info (will be submitted as-is)
+          this.photos = p.map((pp) => ({ id: Date.now() + Math.random(), name: pp.path ?? pp.url ?? '', preview: null, __path: pp.path ?? pp.url ?? '' }));
+        }
+      } catch (err) {
+        // ignore parse errors
+        console.warn('init parse failed', err);
+      }
+    })()
+  "
   class="bg-white rounded-2xl border border-[#05727d]/20 shadow-sm overflow-hidden"
 >
 
@@ -284,6 +371,30 @@
                      focus:ring-[#05727d]/15 focus:border-[#05727d]"
               placeholder="Contoh: Chemical A / Produk X">
             @error('product') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          {{-- Nama Lot (dinamis) --}}
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">Nama Lot</label>
+            <input type="text" name="form_values[lot_name]"
+                   value="{{ $fv('lot_name', '') }}"
+                   class="w-full rounded-lg border border-slate-200 px-3 py-2 outline-none focus:ring-[#05727d]/15 focus:border-[#05727d]"
+                   placeholder="Contoh: LOT-2025-001">
+            @if($errors->has('form_values.lot_name'))
+              <div class="text-[11px] text-rose-600 mt-1">{{ $errors->first('form_values.lot_name') }}</div>
+            @endif
+          </div>
+
+          {{-- Nama Operator (dinamis) --}}
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">Nama Operator</label>
+            <input type="text" name="form_values[operator_name]"
+                   value="{{ $fv('operator_name', '') }}"
+                   class="w-full rounded-lg border border-slate-200 px-3 py-2 outline-none focus:ring-[#05727d]/15 focus:border-[#05727d]"
+                   placeholder="Contoh: Budi Santoso">
+            @if($errors->has('form_values.operator_name'))
+              <div class="text-[11px] text-rose-600 mt-1">{{ $errors->first('form_values.operator_name') }}</div>
+            @endif
           </div>
 
           {{-- Line Produksi --}}
@@ -496,10 +607,10 @@
                 accept="image/*"
                 @change="handlePhotoChange($event, index)"
                 class="block w-full text-[11px] text-slate-600
-                       file:mr-2 file:py-1 file:px-2 file:rounded-md
-                       file:border-0 file:text-[11px]
-                       file:bg-[#05727d]/10 file:text-[#05727d]
-                       hover:file:bg-[#05727d]/20">
+                      file:mr-2 file:py-1 file:px-2 file:rounded-md
+                      file:border-0 file:text-[11px]
+                      file:bg-[#05727d]/10 file:text-[#05727d]
+                      hover:file:bg-[#05727d]/20">
               @error('photos.*') <div class="text-[11px] text-rose-600 mt-1">{{ $message }}</div> @enderror
 
               <input

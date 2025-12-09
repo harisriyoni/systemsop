@@ -54,7 +54,7 @@
 
     // kalau di model ada relation creator/updater
     $creatorName = optional($user->creator)->name ?? ($user->created_by ?? '-');
-    $updaterName = optional($user->updater)->name ?? ($user->updated_by ?? '-');
+    $updaterName = optional($user->updater)->name ?? ($user->updated_by ?? '-');  
 @endphp
 
 <div class="max-w-4xl mx-auto space-y-5">
