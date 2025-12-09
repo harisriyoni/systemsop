@@ -7,17 +7,23 @@
     $user = auth()->user();
 
     // ==========================================
-    // 1. SETUP URL HELPER (CONSISTENT LOGIC)
+    // 1. SETUP URL HELPER (VPS SAFE)
     // ==========================================
     $base = rtrim(config('app.url') ?: url('/'), '/');
     $host = request()->getHost();
 
     $generateUrl = function ($path) use ($base, $host) {
         if (!$path) return null;
-        if (Str::startsWith($path, ['http://', 'https://', '//'])) return $path;
         
-        $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($path, '/'));
+        // Kalau sudah URL full, return
+        if (Str::startsWith($path, ['http://', 'https://', '//'])) {
+            return $path;
+        }
         
+        // Bersihkan path
+        $clean = preg_replace('#^(public/|storage/app/public/|storage/)+#', '', ltrim($path, '/'));
+        
+        // Logika Hostinger/VPS
         if (Str::contains($host, 'hostingersite.com')) {
             return $base . '/storage/app/public/' . $clean;
         } else {
@@ -25,7 +31,7 @@
         }
     };
 
-    // 2. DATA DB (BUILDER & EXTRA)
+    // 2. DATA DB
     $dbBuilder = $sop->builder_schema ?? [];
     if (is_string($dbBuilder)) $dbBuilder = json_decode($dbBuilder, true) ?: [];
 
@@ -34,12 +40,12 @@
     $dbExtra = $dbMeta['extra_fields'] ?? [];
     $dbFormValues = $dbMeta['form_values'] ?? [];
 
-    // 3. DATA OLD INPUT (Priority over DB)
+    // 3. DATA OLD INPUT
     $oldBuilder = old('builder_schema') ? json_decode(old('builder_schema'), true) : null;
     $oldExtra   = old('extra_fields') ? json_decode(old('extra_fields'), true) : null;
     $oldForm    = old('form_values');
 
-    // 4. FINAL INIT DATA
+    // 4. INIT DATA
     $initBuilder = $oldBuilder ?? $dbBuilder;
     if (empty($initBuilder)) {
         $initBuilder = [[
@@ -58,44 +64,39 @@
         }
     }
 
-    // 5. PHOTOS (Menggunakan Helper URL)
+    // 5. PHOTOS SOP (Menggunakan Helper URL)
     $rawPhotos = $sop->photos ?? [];
     if (is_string($rawPhotos)) $rawPhotos = json_decode($rawPhotos, true) ?: [];
     $initPhotos = [];
     foreach ($rawPhotos as $p) {
         $path = $p['path'] ?? ($p['url'] ?? null);
         if (!$path) continue;
-        
-        $url = $generateUrl($path); // Generate URL aman
-
         $initPhotos[] = [
             'id' => (string)Str::uuid(),
             'name' => $path,
-            'preview' => $url,
+            'preview' => $generateUrl($path), // Pakai Helper
             '__path' => $path,
             'desc' => $p['desc'] ?? ''
         ];
     }
 
-    // 6. RAW MATERIALS (Menggunakan Helper URL)
+    // ==========================================
+    // 6. RAW MATERIALS (LOGIC SAMAIN SEPERTI FOTO SOP)
+    // ==========================================
     $dbMaterials = $sop->rawMaterials; 
     $oldMaterials = old('raw_materials'); 
 
     $initRawMaterials = [];
 
     if ($oldMaterials && is_array($oldMaterials)) {
-        // KASUS: Error Validasi -> Pakai input user
+        // KASUS: Error Validasi
         foreach ($oldMaterials as $index => $oldItem) {
             $originalId = $oldItem['id'] ?? null;
             $originalRec = $originalId ? $dbMaterials->find($originalId) : null;
             
-            // Generate URL jika record asli ada
-            $existingUrl = null;
-            if($originalRec && $originalRec->image_path) {
-                $existingUrl = $generateUrl($originalRec->image_path);
-            } elseif ($originalRec && $originalRec->image_url) {
-                $existingUrl = $originalRec->image_url;
-            }
+            // Ambil path lama jika user tidak upload file baru (biar preview tetap muncul)
+            $existingPath = $originalRec ? $originalRec->image_path : null;
+            $existingUrl  = $existingPath ? $generateUrl($existingPath) : ($originalRec->image_url ?? null);
 
             $initRawMaterials[] = [
                 'id' => $originalId, 
@@ -104,17 +105,16 @@
                 'amount' => $oldItem['amount'] ?? '',
                 'unit' => $oldItem['unit'] ?? 'kg',
                 'notes' => $oldItem['notes'] ?? '',
-                'image_url' => $existingUrl, // Pakai URL yang sudah digenerate
-                'image_path' => $originalRec ? $originalRec->image_path : null,
+                'image_url' => $existingUrl, // URL Aman VPS
+                'image_path' => $existingPath,
                 'new_image_preview' => null, 
                 'is_deleted' => false
             ];
         }
     } else {
-        // KASUS: Load Normal -> Pakai DB
+        // KASUS: Load Normal dari DB
         foreach ($dbMaterials as $rm) {
-            // Cek path dulu, baru fallback ke url lama
-            $url = $rm->image_path ? $generateUrl($rm->image_path) : $rm->image_url;
+            $existingUrl = $rm->image_path ? $generateUrl($rm->image_path) : ($rm->image_url ?? null);
 
             $initRawMaterials[] = [
                 'id' => $rm->id,
@@ -123,7 +123,7 @@
                 'amount' => $rm->amount,
                 'unit' => $rm->unit,
                 'notes' => $rm->notes,
-                'image_url' => $url, // Pakai URL yang sudah digenerate
+                'image_url' => $existingUrl, // URL Aman VPS
                 'image_path' => $rm->image_path,
                 'new_image_preview' => null,
                 'is_deleted' => false
@@ -338,7 +338,7 @@
                 </div>
             </div>
 
-            {{-- 2. RAW MATERIALS 🧱 (EDIT MODE) --}}
+            {{-- 2. RAW MATERIALS 🧱 (EDIT MODE - VPS SAFE) --}}
             <div class="bg-white border border-[#05727d]/20 rounded-xl p-4 mb-4">
                 <div class="flex items-center justify-between mb-3">
                     <div class="text-xs font-semibold text-[#05727d] flex items-center gap-2">
@@ -382,13 +382,17 @@
 
                                     <div class="flex items-center justify-between mt-3 pt-2 border-t border-slate-200/60">
                                         <div class="flex items-center gap-3">
+                                            {{-- Preview Image --}}
                                             <div class="h-10 w-10 rounded bg-white border border-slate-200 overflow-hidden flex-shrink-0">
+                                                {{-- Preview Foto Baru (Upload) --}}
                                                 <template x-if="mat.new_image_preview">
                                                     <img :src="mat.new_image_preview" class="h-full w-full object-cover">
                                                 </template>
+                                                {{-- Preview Foto Lama (DB - VPS Safe) --}}
                                                 <template x-if="!mat.new_image_preview && mat.image_url">
                                                     <img :src="mat.image_url" class="h-full w-full object-cover">
                                                 </template>
+                                                {{-- Placeholder --}}
                                                 <template x-if="!mat.new_image_preview && !mat.image_url">
                                                     <div class="h-full w-full grid place-items-center text-slate-300">
                                                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16l4-4a3 3 0 014 0l4 4M2 20h20M2 12l5-5a3 3 0 014 0l3 3m7-7v8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -418,7 +422,9 @@
             <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl p-4 mb-4">
                 <div class="flex items-center justify-between mb-3">
                     <div class="text-xs font-semibold text-[#05727d]">SOP Builder</div>
-                    <button type="button" @click="addSection()" class="text-[11px] bg-[#05727d] text-white px-2 py-1 rounded">+ Section</button>
+                    <button type="button" @click="addSection()" class="text-[11px] bg-[#05727d] text-white px-2 py-1 rounded">
+                        + Section
+                    </button>
                 </div>
                 <template x-for="(section, sIdx) in builderSections" :key="section.id">
                     <div class="bg-white border border-slate-200 rounded-lg p-3 mb-3">
@@ -461,9 +467,11 @@
                 </div>
             </div>
 
-            {{-- 5. FOTO SOP --}}
+            {{-- 5. FOTO SOP (LAMA & BARU) --}}
             <div class="bg-white border border-[#05727d]/20 rounded-xl p-4 mb-4">
                 <div class="text-xs font-semibold text-[#05727d] mb-3">Foto SOP</div>
+                
+                {{-- Foto Lama --}}
                 @if(count($initPhotos))
                     <div class="mb-3">
                         <div class="text-[10px] text-slate-500 mb-2">Foto Lama (Centang untuk hapus):</div>
@@ -480,6 +488,8 @@
                         </div>
                     </div>
                 @endif
+
+                {{-- Foto Baru --}}
                 <div class="space-y-2">
                     <template x-for="(ph, idx) in newPhotos" :key="ph.id">
                         <div class="flex gap-2 items-center text-xs border p-2 rounded bg-slate-50">

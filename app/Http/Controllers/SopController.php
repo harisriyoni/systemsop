@@ -245,9 +245,9 @@ class SopController extends Controller
    public function update(Request $request, Sop $sop)
 {
     // 1. Otorisasi
-    // $this->authorizeManage(); // Pastikan method ini ada atau ganti dengan Gate check
+    // $this->authorizeManage(); 
 
-    // 2. Validasi Input (Gabungan Core + Raw Materials)
+    // 2. Validasi Input
     $request->validate([
         'code'            => ['required', 'string', 'max:50', Rule::unique('sops')->ignore($sop->id)],
         'title'           => ['required', 'string', 'max:255'],
@@ -260,25 +260,24 @@ class SopController extends Controller
         'pin'             => ['nullable', 'string', 'max:20'],
         'content'         => ['nullable', 'string'],
         
-        // Validasi Foto Utama
+        // Foto Utama
         'photos'          => ['nullable', 'array', 'max:10'],
         'photos.*'        => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         
-        // Validasi Raw Materials
+        // Raw Materials
         'raw_materials'   => ['nullable', 'array'],
-        'raw_materials.*.id'     => ['nullable', 'integer'], // ID untuk update
+        'raw_materials.*.id'     => ['nullable', 'integer'], 
         'raw_materials.*.name'   => ['required', 'string', 'max:255'],
         'raw_materials.*.amount' => ['nullable', 'numeric'],
         'raw_materials.*.unit'   => ['nullable', 'string', 'max:50'],
         'raw_materials.*.notes'  => ['nullable', 'string'],
-        'raw_materials.*.image'  => ['nullable', 'image', 'max:2048'], // Validasi file image
+        'raw_materials.*.image'  => ['nullable', 'image', 'max:2048'], 
     ]);
 
     // 3. Persiapan Data JSON
     $builderSchema = $request->input('builder_schema') ? json_decode($request->input('builder_schema'), true) : [];
     $extraFields   = $request->input('extra_fields') ? json_decode($request->input('extra_fields'), true) : [];
     
-    // Normalisasi Extra Fields
     $normalizedExtra = [];
     if(is_array($extraFields)){
         foreach ($extraFields as $row) {
@@ -291,10 +290,9 @@ class SopController extends Controller
         }
     }
 
-    // Form Values
     $formValues = $request->input('form_values', []);
 
-    // 4. Handle Foto Utama (Hapus Lama + Upload Baru)
+    // 4. Handle Foto Utama SOP (Metode Hapus & Tambah)
     $currentPhotos = is_string($sop->photos) ? json_decode($sop->photos, true) : ($sop->photos ?? []);
     if (!is_array($currentPhotos)) $currentPhotos = [];
 
@@ -303,24 +301,23 @@ class SopController extends Controller
     if (!empty($removePaths)) {
         $currentPhotos = array_filter($currentPhotos, function($p) use ($removePaths) {
             $path = $p['path'] ?? ($p['url'] ?? null);
-            // Jika path ada di array remove, hapus file fisik & return false
             if (in_array($path, $removePaths)) {
-                Storage::disk('public')->delete($path);
+                Storage::disk('public')->delete($path); // Hapus fisik
                 return false; 
             }
             return true;
         });
     }
 
-    // Upload foto baru
-    $newPhotos = []; // Method handlePhotosUpload harus return array format standar
+    // Upload foto baru SOP
+    $newPhotos = [];
     if ($request->hasFile('photos')) {
         foreach ($request->file('photos') as $idx => $file) {
             $path = $file->store('sop-photos', 'public');
             $desc = $request->input("photo_desc.$idx");
             $newPhotos[] = [
                 'path' => $path,
-                'url'  => asset('storage/' . $path),
+                'url'  => asset('storage/' . $path), // Helper asset standar Laravel
                 'desc' => $desc
             ];
         }
@@ -328,7 +325,7 @@ class SopController extends Controller
 
     $finalPhotos = array_merge(array_values($currentPhotos), $newPhotos);
 
-    // 5. Susun Payload Utama
+    // 5. Payload
     $payload = [
         'code'           => $request->code,
         'title'          => $request->title,
@@ -345,18 +342,16 @@ class SopController extends Controller
         'meta'           => [
             'extra_fields' => $normalizedExtra,
             'form_values'  => $formValues,
-            'logs'         => $sop->meta['logs'] ?? [] // Pertahankan log lama
+            'logs'         => $sop->meta['logs'] ?? [] 
         ]
     ];
 
-    // ==========================================
-    // LOGIC VERSI & REVISI
-    // ==========================================
     DB::beginTransaction();
     try {
+        // ==========================================
+        // KASUS 1: REVISI BARU (SOP SUDAH APPROVED)
+        // ==========================================
         if ($sop->status === 'approved') {
-            // -- BUAT REVISI BARU (SOP BARU) --
-            // Ambil versi terakhir
             $lastVer = Sop::where('code', $request->code)->max('version');
             $payload['version'] = ($lastVer ?? $sop->version) + 1;
             $payload['status'] = 'draft';
@@ -369,22 +364,25 @@ class SopController extends Controller
 
             $newSop = Sop::create($payload);
             
-            // Proses Raw Materials untuk SOP baru (Clone + New Uploads)
-            $this->processRawMaterials($newSop, $request->input('raw_materials', []), $request);
+            // Proses Raw Materials (Copy Logic)
+            $this->processRawMaterials($newSop, $request->input('raw_materials', []), $request, true);
 
             DB::commit();
             return redirect()->route('sop.edit', $newSop)
                 ->with('success', 'Versi baru (v'.$newSop->version.') berhasil dibuat dari revisi.');
-
-        } else {
-            // -- UPDATE SOP YANG ADA (DRAFT) --
+        } 
+        
+        // ==========================================
+        // KASUS 2: UPDATE BIASA (DRAFT)
+        // ==========================================
+        else {
             $sop->update($payload);
             
-            // Proses Sync Raw Materials
-            $this->processRawMaterials($sop, $request->input('raw_materials', []), $request);
+            // Proses Raw Materials (Sync Logic)
+            $this->processRawMaterials($sop, $request->input('raw_materials', []), $request, false);
 
             DB::commit();
-            return redirect()->route('sop.history', $sop)
+            return redirect()->route('sop.edit', $sop) // Redirect ke edit lagi biar user lihat hasilnya
                 ->with('success', 'SOP berhasil diperbarui.');
         }
 
@@ -393,7 +391,6 @@ class SopController extends Controller
         return back()->withInput()->with('error', 'Gagal menyimpan: ' . $e->getMessage());
     }
 }
-    
     public function destroy(Sop $sop)
 {
     // 1. Otorisasi
@@ -987,66 +984,85 @@ class SopController extends Controller
      * - Jika ID ada di DB tapi tidak ada di input -> Delete (Logic ini opsional, tergantung UI. 
      * Biasanya di UI repeater, item yang dihapus tidak dikirim ke server).
      */
-    private function processRawMaterials(Sop $sop, array $inputs, Request $request)
-    {
-        // 1. Ambil ID material yang ada saat ini di DB untuk SOP ini
-        $sop->load('rawMaterials');
-        $existingIds = $sop->rawMaterials->pluck('id')->toArray();
-        $submittedIds = [];
+    private function processRawMaterials($sopModel, array $inputs, Request $request, bool $isRevision = false)
+{
+    // 1. Identifikasi ID yang tetap dipertahankan
+    $submittedIds = [];
+    foreach ($inputs as $row) {
+        if (!empty($row['id'])) {
+            $submittedIds[] = $row['id'];
+        }
+    }
 
-        foreach ($inputs as $index => $row) {
-            // Ambil ID dari input (jika edit)
-            $id = $row['id'] ?? null;
-            
-            // Siapkan data dasar
-            $dataToSave = [
-                'name'   => $row['name'] ?? 'Material',
-                'amount' => $row['amount'] ?? 0.00,
-                'unit'   => $row['unit'] ?? 'kg',
-                'notes'  => $row['notes'] ?? null,
-            ];
-
-            // Cek apakah ada file upload untuk index ini
-            if ($request->hasFile("raw_materials.$index.image")) {
-                $file = $request->file("raw_materials.$index.image");
-                $path = $file->store('raw_materials', 'public');
-                $dataToSave['image_path'] = $path;
-                
-                // Jika ini edit dan ada file baru, hapus file lama (opsional)
-                if ($id && in_array($id, $existingIds)) {
-                    $oldMat = SopRawMaterial::find($id);
-                    if ($oldMat && $oldMat->image_path) {
-                        Storage::disk('public')->delete($oldMat->image_path);
-                    }
+    // 2. Logic Hapus: Hanya jika BUKAN revisi baru (kalau revisi, kita create all)
+    if (!$isRevision) {
+        // Ambil ID yang ada di DB saat ini
+        $existingIds = $sopModel->rawMaterials()->pluck('id')->toArray();
+        
+        // Cari ID yang ada di DB tapi TIDAK ada di form submit => HAPUS
+        $idsToDelete = array_diff($existingIds, $submittedIds);
+        
+        if (!empty($idsToDelete)) {
+            $toDeleteItems = SopRawMaterial::whereIn('id', $idsToDelete)->get();
+            foreach ($toDeleteItems as $item) {
+                // Hapus file fisik
+                if ($item->image_path) {
+                    Storage::disk('public')->delete($item->image_path);
                 }
+                $item->delete();
             }
-            
-            // --- PROSES SIMPAN / UPDATE ---
-            if ($id && in_array($id, $existingIds)) {
-                // UPDATE existing
-                SopRawMaterial::where('id', $id)->update($dataToSave);
-                $submittedIds[] = $id;
-            } else {
-                // CREATE new
-                // Pakai create relationship agar sop_id otomatis terisi
-                $sop->rawMaterials()->create($dataToSave);
+        }
+    }
+
+    // 3. Loop Inputs untuk Create/Update
+    foreach ($inputs as $index => $row) {
+        $inputRowId = $row['id'] ?? null;
+        
+        // Cari data lama jika ada ID-nya (untuk ambil path gambar lama)
+        $oldRecord = $inputRowId ? SopRawMaterial::find($inputRowId) : null;
+
+        // Siapkan data dasar
+        $dataToSave = [
+            'sop_id' => $sopModel->id, // Link ke SOP (baru/lama)
+            'name'   => $row['name'],
+            'amount' => $row['amount'] ?? null,
+            'unit'   => $row['unit'] ?? null,
+            'notes'  => $row['notes'] ?? null,
+        ];
+
+        // --- LOGIC GAMBAR UTAMA ---
+        // Cek apakah user upload file baru di baris ini?
+        if ($request->hasFile("raw_materials.$index.image")) {
+            // Upload file baru
+            $file = $request->file("raw_materials.$index.image");
+            $path = $file->store('raw-materials', 'public');
+            $dataToSave['image_path'] = $path;
+
+            // Jika ini update record yang sama, hapus file lama untuk hemat space
+            if (!$isRevision && $oldRecord && $oldRecord->image_path) {
+                Storage::disk('public')->delete($oldRecord->image_path);
+            }
+        } else {
+            // TIDAK upload file baru.
+            // Gunakan path lama jika ada record sebelumnya.
+            if ($oldRecord) {
+                $dataToSave['image_path'] = $oldRecord->image_path;
             }
         }
 
-        // 2. Hapus material yang ada di DB tapi TIDAK ada di input (User menghapus row di frontend)
-        // Hanya berlaku jika kita sedang Update draft (bukan create revision baru, karena ID pasti beda)
-        if ($sop->wasRecentlyCreated === false) { 
-            $toDelete = array_diff($existingIds, $submittedIds);
-            if (!empty($toDelete)) {
-                $materialsToDelete = SopRawMaterial::whereIn('id', $toDelete)->get();
-                
-                foreach ($materialsToDelete as $m) {
-                    // Hapus file fisik Raw Material
-                    if ($m->image_path) {
-                        Storage::disk('public')->delete($m->image_path);
-                    }
-                    // Hapus record DB
-                    $m->delete();
+        // --- EKSEKUSI DB ---
+        if ($isRevision) {
+            // Kalau revisi, SEMUA dianggap record baru (Clone)
+            // Walaupun punya ID dari SOP lama, kita abaikan ID itu dan create baru
+            SopRawMaterial::create($dataToSave);
+        } else {
+            // Kalau update biasa
+            if ($inputRowId && $oldRecord) {
+                // Update
+                $oldRecord->update($dataToSave);
+            } else {
+                // Create baru (baris tambahan)
+                SopRawMaterial::create($dataToSave);
                 }
             }
         }
