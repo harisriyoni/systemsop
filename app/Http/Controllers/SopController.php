@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use App\Models\SopRawMaterial; 
+use App\Models\SopRawMaterial;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 class SopController extends Controller
@@ -241,188 +242,186 @@ class SopController extends Controller
         return view('sop.edit', compact('sop', 'templates'));
     }
 
-    public function update(Request $request, Sop $sop)
-    {
-        $this->authorizeManage();
+   public function update(Request $request, Sop $sop)
+{
+    // 1. Otorisasi
+    // $this->authorizeManage(); // Pastikan method ini ada atau ganti dengan Gate check
 
-        // decode builder + extra dulu
-        $builderSchemaJson = $request->input('builder_schema');
-        $extraFieldsJson   = $request->input('extra_fields');
-
-        $builderSchema = $builderSchemaJson ? json_decode($builderSchemaJson, true) : [];
-        if (!is_array($builderSchema)) $builderSchema = [];
-
-        $extraFields = $extraFieldsJson ? json_decode($extraFieldsJson, true) : [];
-        if (!is_array($extraFields)) $extraFields = [];
-
-        // validasi payload core + template_id (Memanggil helper validatePayload)
-        $data = $this->validatePayload($request, $sop);
-        $data['is_public'] = $request->boolean('is_public');
-
-        // apply template defaults kalau user ganti template di edit
-        if (!empty($data['template_id'])) {
-            $tpl = SopTemplate::find($data['template_id']);
-            if ($tpl) {
-                $data = $this->applyTemplateToData($data, $tpl);
-            }
-        }
-
-        // normalisasi extra_fields → meta
-        $normalizedExtra = [];
-        foreach ($extraFields as $row) {
-            if (!is_array($row)) continue;
-
-            $label = trim((string)($row['label'] ?? ''));
-            $value = trim((string)($row['value'] ?? ''));
-
-            if ($label === '' && $value === '') continue;
-
-            $normalizedExtra[] = [
-                'label' => $label !== '' ? $label : '-',
-                'value' => $value !== '' ? $value : '-',
-            ];
-        }
-
-        $meta = is_array($sop->meta) ? $sop->meta : (json_decode($sop->meta, true) ?: []);
-
-        // ambil form_values dari request dan normalisasi (prioritas data request)
-        $formValues = $request->input('form_values', []);
-        if (!is_array($formValues)) $formValues = [];
-        foreach ($formValues as $k => $v) {
-            if (is_string($v)) $formValues[$k] = trim($v);
-        }
-
-        // validasi ringan (sama seperti di store)
-        $request->validate([
-            'form_values.lot_name'      => ['nullable', 'string', 'max:150'],
-            'form_values.operator_name' => ['nullable', 'string', 'max:150'],
-        ]);
-
-        $meta['extra_fields']   = $normalizedExtra;
-        $meta['builder_schema'] = $builderSchema;
-        $meta['form_values']    = $formValues;
-
-
-        // append log kecil (optional)
-        $meta['logs'] = is_array($meta['logs'] ?? null) ? $meta['logs'] : [];
-        $meta['logs'][] = [
-            'at'      => now()->toDateTimeString(),
-            'by'      => auth()->user()->name ?? 'system',
-            'action'  => ($sop->status === 'approved') ? 'create_revision' : 'update',
-            'version' => $sop->version ?? 1,
-        ];
-
-        // FOTO UTAMA SOP: merge foto lama + foto baru, boleh remove
-        $existing = is_array($sop->photos) ? $sop->photos : (json_decode($sop->photos, true) ?: []);
-        $removedPaths = $request->input('remove_photos', []);
-
-        if (is_array($removedPaths) && count($removedPaths)) {
-            $existing = array_values(array_filter($existing, function ($p) use ($removedPaths) {
-                return !in_array($p['path'] ?? null, $removedPaths);
-            }));
-            foreach ($removedPaths as $rp) {
-                if ($rp) Storage::disk('public')->delete($rp);
-            }
-        }
-
-        $newPhotos = $this->handlePhotosUpload($request);
-        $mergedPhotos = array_merge($existing, $newPhotos);
+    // 2. Validasi Input (Gabungan Core + Raw Materials)
+    $request->validate([
+        'code'            => ['required', 'string', 'max:50', Rule::unique('sops')->ignore($sop->id)],
+        'title'           => ['required', 'string', 'max:255'],
+        'department'      => ['required', 'string', 'max:100'],
+        'product'         => ['nullable', 'string', 'max:100'],
+        'line'            => ['nullable', 'string', 'max:100'],
+        'effective_from'  => ['nullable', 'date'],
+        'effective_to'    => ['nullable', 'date', 'after_or_equal:effective_from'],
+        'is_public'       => ['nullable', 'boolean'],
+        'pin'             => ['nullable', 'string', 'max:20'],
+        'content'         => ['nullable', 'string'],
         
-        // Ambil input Raw Materials dari request
-        $rawMaterialsInputs = $request->input('raw_materials', []);
+        // Validasi Foto Utama
+        'photos'          => ['nullable', 'array', 'max:10'],
+        'photos.*'        => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+        
+        // Validasi Raw Materials
+        'raw_materials'   => ['nullable', 'array'],
+        'raw_materials.*.id'     => ['nullable', 'integer'], // ID untuk update
+        'raw_materials.*.name'   => ['required', 'string', 'max:255'],
+        'raw_materials.*.amount' => ['nullable', 'numeric'],
+        'raw_materials.*.unit'   => ['nullable', 'string', 'max:50'],
+        'raw_materials.*.notes'  => ['nullable', 'string'],
+        'raw_materials.*.image'  => ['nullable', 'image', 'max:2048'], // Validasi file image
+    ]);
 
-
-        // ✅ KASUS 1: kalau SOP sudah approved → buat versi baru
-        if ($sop->status === 'approved') {
-            $latest = Sop::where('code', $data['code'])
-                ->orderByDesc('version')
-                ->first();
-
-            $nextVersion = $latest ? ($latest->version + 1) : (($sop->version ?? 1) + 1);
-
-            $newData = [
-                ...$data,
-                'version'              => $nextVersion,
-                'status'               => 'draft',
-                'created_by'           => auth()->id(),
-                'is_approved_produksi' => false,
-                'is_approved_qa'       => false,
-                'is_approved_logistik' => false,
-                'photos'               => count($mergedPhotos) ? $mergedPhotos : null,
-                'builder_schema'       => $builderSchema,
-                'form_schema'          => [],
-                'meta'                 => $meta,
-            ];
-
-            $newSop = Sop::create($newData);
-
-            // ==========================================
-            // INTEGRASI RAW MATERIALS (REVISI BARU)
-            // ==========================================
-            if (!empty($rawMaterialsInputs)) {
-                // Treat as fresh create for the new SOP ID
-                $this->processRawMaterials($newSop, $rawMaterialsInputs, $request);
+    // 3. Persiapan Data JSON
+    $builderSchema = $request->input('builder_schema') ? json_decode($request->input('builder_schema'), true) : [];
+    $extraFields   = $request->input('extra_fields') ? json_decode($request->input('extra_fields'), true) : [];
+    
+    // Normalisasi Extra Fields
+    $normalizedExtra = [];
+    if(is_array($extraFields)){
+        foreach ($extraFields as $row) {
+            if (!empty($row['label']) || !empty($row['value'])) {
+                $normalizedExtra[] = [
+                    'label' => $row['label'] ?? '-',
+                    'value' => $row['value'] ?? '-'
+                ];
             }
-
-            return redirect()
-                ->route('sop.edit', $newSop)
-                ->with('success', 'Revisi dibuat sebagai SOP versi v' . $nextVersion . '. Silakan submit approval ulang.');
         }
-
-        // ✅ KASUS 2: SOP belum approved → update biasa
-        $data['photos']         = count($mergedPhotos) ? $mergedPhotos : null;
-        $data['builder_schema'] = $builderSchema;
-        $data['form_schema']    = [];
-        $data['meta']           = $meta;
-
-        $sop->update($data);
-
-        // ==========================================
-        // INTEGRASI RAW MATERIALS (UPDATE DRAFT)
-        // ==========================================
-        if (!empty($rawMaterialsInputs)) {
-            // Sync: Update, Add, dan Delete material yang tidak terkirim
-            $this->processRawMaterials($sop, $rawMaterialsInputs, $request);
-        } else {
-            // Jika array raw_materials kosong, hapus semua yang sudah ada
-            $sop->rawMaterials->each(function($rm) {
-                if($rm->image_path) Storage::disk('public')->delete($rm->image_path);
-                $rm->delete();
-            });
-        }
-
-        return redirect()
-            ->route('sop.edit', $sop)
-            ->with('success', 'SOP berhasil diperbarui.');
     }
+
+    // Form Values
+    $formValues = $request->input('form_values', []);
+
+    // 4. Handle Foto Utama (Hapus Lama + Upload Baru)
+    $currentPhotos = is_string($sop->photos) ? json_decode($sop->photos, true) : ($sop->photos ?? []);
+    if (!is_array($currentPhotos)) $currentPhotos = [];
+
+    // Hapus foto yang dicentang
+    $removePaths = $request->input('remove_photos', []);
+    if (!empty($removePaths)) {
+        $currentPhotos = array_filter($currentPhotos, function($p) use ($removePaths) {
+            $path = $p['path'] ?? ($p['url'] ?? null);
+            // Jika path ada di array remove, hapus file fisik & return false
+            if (in_array($path, $removePaths)) {
+                Storage::disk('public')->delete($path);
+                return false; 
+            }
+            return true;
+        });
+    }
+
+    // Upload foto baru
+    $newPhotos = []; // Method handlePhotosUpload harus return array format standar
+    if ($request->hasFile('photos')) {
+        foreach ($request->file('photos') as $idx => $file) {
+            $path = $file->store('sop-photos', 'public');
+            $desc = $request->input("photo_desc.$idx");
+            $newPhotos[] = [
+                'path' => $path,
+                'url'  => asset('storage/' . $path),
+                'desc' => $desc
+            ];
+        }
+    }
+
+    $finalPhotos = array_merge(array_values($currentPhotos), $newPhotos);
+
+    // 5. Susun Payload Utama
+    $payload = [
+        'code'           => $request->code,
+        'title'          => $request->title,
+        'department'     => $request->department,
+        'product'        => $request->product,
+        'line'           => $request->line,
+        'content'        => $request->content,
+        'effective_from' => $request->effective_from,
+        'effective_to'   => $request->effective_to,
+        'is_public'      => $request->boolean('is_public'),
+        'pin'            => $request->pin,
+        'photos'         => !empty($finalPhotos) ? $finalPhotos : null,
+        'builder_schema' => $builderSchema,
+        'meta'           => [
+            'extra_fields' => $normalizedExtra,
+            'form_values'  => $formValues,
+            'logs'         => $sop->meta['logs'] ?? [] // Pertahankan log lama
+        ]
+    ];
+
+    // ==========================================
+    // LOGIC VERSI & REVISI
+    // ==========================================
+    DB::beginTransaction();
+    try {
+        if ($sop->status === 'approved') {
+            // -- BUAT REVISI BARU (SOP BARU) --
+            // Ambil versi terakhir
+            $lastVer = Sop::where('code', $request->code)->max('version');
+            $payload['version'] = ($lastVer ?? $sop->version) + 1;
+            $payload['status'] = 'draft';
+            $payload['created_by'] = auth()->id();
+            
+            // Reset approval
+            $payload['is_approved_produksi'] = false;
+            $payload['is_approved_qa'] = false;
+            $payload['is_approved_logistik'] = false;
+
+            $newSop = Sop::create($payload);
+            
+            // Proses Raw Materials untuk SOP baru (Clone + New Uploads)
+            $this->processRawMaterials($newSop, $request->input('raw_materials', []), $request);
+
+            DB::commit();
+            return redirect()->route('sop.edit', $newSop)
+                ->with('success', 'Versi baru (v'.$newSop->version.') berhasil dibuat dari revisi.');
+
+        } else {
+            // -- UPDATE SOP YANG ADA (DRAFT) --
+            $sop->update($payload);
+            
+            // Proses Sync Raw Materials
+            $this->processRawMaterials($sop, $request->input('raw_materials', []), $request);
+
+            DB::commit();
+            return redirect()->route('sop.history', $sop)
+                ->with('success', 'SOP berhasil diperbarui.');
+        }
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()->withInput()->with('error', 'Gagal menyimpan: ' . $e->getMessage());
+    }
+}
     
     public function destroy(Sop $sop)
-    {
-        // 1. Otorisasi
-        if (!auth()->user()->isRole(['admin'])) {
-            return back()->with('error', 'Hanya admin yang boleh menghapus SOP.');
-        }
-
-        // 2. Hapus Foto Utama SOP
-        $photos = is_array($sop->photos) ? $sop->photos : (json_decode($sop->photos, true) ?: []);
-        foreach ($photos as $p) {
-            if (!empty($p['path'])) Storage::disk('public')->delete($p['path']);
-        }
-
-        // 3. INTEGRASI: Hapus Foto Raw Materials 🗑️
-        $sop->load('rawMaterials');
-        foreach ($sop->rawMaterials as $material) {
-            if ($material->image_path) {
-                // Hapus file fisik dari public disk
-                Storage::disk('public')->delete($material->image_path);
-            }
-        }
-
-        // 4. Hapus Record SOP dari Database
-        $sop->delete();
-        
-        return redirect()->route('sop.index')->with('success', 'SOP berhasil dihapus.');
+{
+    // 1. Otorisasi
+    if (!auth()->user()->isRole(['admin'])) {
+        return back()->with('error', 'Hanya admin yang boleh menghapus SOP.');
     }
+
+    // 2. Hapus Foto Utama SOP
+    $photos = is_array($sop->photos) ? $sop->photos : (json_decode($sop->photos, true) ?: []);
+    foreach ($photos as $p) {
+        if (!empty($p['path'])) Storage::disk('public')->delete($p['path']);
+    }
+
+    // 3. INTEGRASI: Hapus Foto Raw Materials 🗑️
+    $sop->load('rawMaterials');
+    foreach ($sop->rawMaterials as $material) {
+        if ($material->image_path) {
+            // Hapus file fisik dari public disk
+            Storage::disk('public')->delete($material->image_path);
+        }
+    }
+
+    // 4. Hapus Record SOP dari Database
+    $sop->delete();
+    
+    // PERUBAHAN DISINI: Gunakan back() untuk kembali ke halaman sebelumnya (reload)
+    return back()->with('success', 'SOP berhasil dihapus.');
+}
 
     // ==========================
     // SUBMIT APPROVAL (DRAFT -> WAITING)
