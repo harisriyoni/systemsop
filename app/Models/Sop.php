@@ -230,4 +230,9 @@ class Sop extends Model
     {
         return $this->template?->name;
     }
+
+    public function rawMaterials()
+    {
+        return $this->hasMany(SopRawMaterial::class, 'sop_id');
+    }
 }

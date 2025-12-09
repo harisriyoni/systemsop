@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use App\Models\SopRawMaterial; 
+use Illuminate\Support\Facades\Route;
 
 class SopController extends Controller
 {
@@ -89,10 +91,11 @@ class SopController extends Controller
         }
 
         return view('sop.create', [
-            'formSchema'        => $defaultFormSchema,
-            'builderSchema'     => $defaultBuilderSchema,
-            'templates'         => $templates,
-            'selectedTemplate'  => $selectedTemplate,
+            'formSchema'     => $defaultFormSchema,
+            'builderSchema'  => $defaultBuilderSchema,
+            'templates'      => $templates,
+            'selectedTemplate' => $selectedTemplate,
+            'rawMaterials'   => [], // Kirim array kosong
         ]);
     }
 
@@ -108,39 +111,38 @@ class SopController extends Controller
         $extraFields = $extraFieldsJson ? json_decode($extraFieldsJson, true) : [];
         if (!is_array($extraFields)) $extraFields = [];
 
-        // 2) validasi core + template_id
+        // 2) VALIDASI CORE + RAW MATERIALS (Sesuai input terbaru)
         $request->validate([
-            'template_id'    => ['nullable', 'integer', 'exists:sop_templates,id'],
+            'template_id'      => ['nullable', 'integer', 'exists:sop_templates,id'],
 
-            'code'           => ['required', 'string', 'max:50', 'unique:sops,code'],
-            'title'          => ['required', 'string', 'max:255'],
-            'department'     => ['required', 'string', 'max:100'],
-            'product'        => ['nullable', 'string', 'max:100'],
-            'line'           => ['nullable', 'string', 'max:100'],
-            'content'        => ['nullable', 'string'],
-            'effective_from' => ['nullable', 'date'],
-            'effective_to'   => ['nullable', 'date', 'after_or_equal:effective_from'],
-            'is_public'      => ['nullable', 'boolean'],
-            'pin'            => ['nullable', 'string', 'max:20'],
+            'code'             => ['required', 'string', 'max:50', 'unique:sops,code'],
+            'title'            => ['required', 'string', 'max:255'],
+            'department'       => ['required', 'string', 'max:100'],
+            'product'          => ['nullable', 'string', 'max:100'],
+            'line'             => ['nullable', 'string', 'max:100'],
+            'content'          => ['nullable', 'string'],
+            'effective_from'   => ['nullable', 'date'],
+            'effective_to'     => ['nullable', 'date', 'after_or_equal:effective_from'],
+            'is_public'        => ['nullable', 'boolean'],
+            'pin'              => ['nullable', 'string', 'max:20'],
 
-            'photos'         => ['nullable', 'array', 'max:10'],
-            'photos.*'       => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-            'photo_desc'     => ['nullable', 'array'],
-            'photo_desc.*'   => ['nullable', 'string', 'max:255'],
+            'photos'           => ['nullable', 'array', 'max:10'],
+            'photos.*'         => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'photo_desc'       => ['nullable', 'array'],
+            'photo_desc.*'     => ['nullable', 'string', 'max:255'],
+
+            // ATURAN VALIDASI RAW MATERIALS
+            'raw_materials'            => ['nullable', 'array'],
+            'raw_materials.*.name'     => ['required', 'string', 'max:255'],
+            'raw_materials.*.amount'   => ['nullable', 'numeric'],
+            'raw_materials.*.unit'     => ['nullable', 'string', 'max:50'],
+            'raw_materials.*.image'    => ['nullable', 'image', 'max:2048'],
+            'raw_materials.*.notes'    => ['nullable', 'string'],
         ]);
 
         $coreFields = [
-            'code',
-            'title',
-            'department',
-            'product',
-            'line',
-            'content',
-            'effective_from',
-            'effective_to',
-            'is_public',
-            'pin',
-            'template_id'
+            'code', 'title', 'department', 'product', 'line', 'content',
+            'effective_from', 'effective_to', 'is_public', 'pin', 'template_id'
         ];
         $data = $request->only($coreFields);
         $data['is_public'] = $request->boolean('is_public');
@@ -156,7 +158,6 @@ class SopController extends Controller
             }
         }
 
-        // 3) normalisasi extra_fields → meta
         // 3) normalisasi extra_fields → meta
         $normalizedExtra = [];
         foreach ($extraFields as $row) {
@@ -174,7 +175,6 @@ class SopController extends Controller
         }
 
         // --- Ambil form_values (field dinamis) dari request ---
-        // Expect: form_values is array, keys like 'lot_name','operator_name', dll.
         $formValues = $request->input('form_values', []);
         if (!is_array($formValues)) $formValues = [];
 
@@ -212,6 +212,15 @@ class SopController extends Controller
             'version'        => 1,
         ]);
 
+        // ==========================================
+        // INTEGRASI: PROSES RAW MATERIALS
+        // ==========================================
+        $rawMaterialsInputs = $request->input('raw_materials', []);
+        if (!empty($rawMaterialsInputs)) {
+            // Karena ini SOP baru, kita hanya perlu "Create All"
+            $this->processRawMaterials($sop, $rawMaterialsInputs, $request);
+        }
+
         return redirect()
             ->route('sop.show', $sop)
             ->with('success', 'SOP berhasil dibuat (v' . ($sop->version ?? 1) . ').');
@@ -223,7 +232,11 @@ class SopController extends Controller
     public function edit(Sop $sop)
     {
         $this->authorizeManage();
+        
         $templates = SopTemplate::where('is_active', true)->orderBy('name')->get();
+
+        // INTEGRASI: Load Raw Materials
+        $sop->load('rawMaterials');
 
         return view('sop.edit', compact('sop', 'templates'));
     }
@@ -242,7 +255,7 @@ class SopController extends Controller
         $extraFields = $extraFieldsJson ? json_decode($extraFieldsJson, true) : [];
         if (!is_array($extraFields)) $extraFields = [];
 
-        // validasi payload core + template_id
+        // validasi payload core + template_id (Memanggil helper validatePayload)
         $data = $this->validatePayload($request, $sop);
         $data['is_public'] = $request->boolean('is_public');
 
@@ -299,7 +312,7 @@ class SopController extends Controller
             'version' => $sop->version ?? 1,
         ];
 
-        // FOTO: merge foto lama + foto baru, boleh remove
+        // FOTO UTAMA SOP: merge foto lama + foto baru, boleh remove
         $existing = is_array($sop->photos) ? $sop->photos : (json_decode($sop->photos, true) ?: []);
         $removedPaths = $request->input('remove_photos', []);
 
@@ -314,8 +327,12 @@ class SopController extends Controller
 
         $newPhotos = $this->handlePhotosUpload($request);
         $mergedPhotos = array_merge($existing, $newPhotos);
+        
+        // Ambil input Raw Materials dari request
+        $rawMaterialsInputs = $request->input('raw_materials', []);
 
-        // ✅ kalau SOP sudah approved → buat versi baru
+
+        // ✅ KASUS 1: kalau SOP sudah approved → buat versi baru
         if ($sop->status === 'approved') {
             $latest = Sop::where('code', $data['code'])
                 ->orderByDesc('version')
@@ -325,26 +342,34 @@ class SopController extends Controller
 
             $newData = [
                 ...$data,
-                'version'               => $nextVersion,
-                'status'                => 'draft',
-                'created_by'            => auth()->id(),
-                'is_approved_produksi'  => false,
-                'is_approved_qa'        => false,
-                'is_approved_logistik'  => false,
-                'photos'                => count($mergedPhotos) ? $mergedPhotos : null,
-                'builder_schema'        => $builderSchema,
-                'form_schema'           => [],
-                'meta'                  => $meta,
+                'version'              => $nextVersion,
+                'status'               => 'draft',
+                'created_by'           => auth()->id(),
+                'is_approved_produksi' => false,
+                'is_approved_qa'       => false,
+                'is_approved_logistik' => false,
+                'photos'               => count($mergedPhotos) ? $mergedPhotos : null,
+                'builder_schema'       => $builderSchema,
+                'form_schema'          => [],
+                'meta'                 => $meta,
             ];
 
             $newSop = Sop::create($newData);
+
+            // ==========================================
+            // INTEGRASI RAW MATERIALS (REVISI BARU)
+            // ==========================================
+            if (!empty($rawMaterialsInputs)) {
+                // Treat as fresh create for the new SOP ID
+                $this->processRawMaterials($newSop, $rawMaterialsInputs, $request);
+            }
 
             return redirect()
                 ->route('sop.edit', $newSop)
                 ->with('success', 'Revisi dibuat sebagai SOP versi v' . $nextVersion . '. Silakan submit approval ulang.');
         }
 
-        // ✅ SOP belum approved → update biasa
+        // ✅ KASUS 2: SOP belum approved → update biasa
         $data['photos']         = count($mergedPhotos) ? $mergedPhotos : null;
         $data['builder_schema'] = $builderSchema;
         $data['form_schema']    = [];
@@ -352,23 +377,50 @@ class SopController extends Controller
 
         $sop->update($data);
 
+        // ==========================================
+        // INTEGRASI RAW MATERIALS (UPDATE DRAFT)
+        // ==========================================
+        if (!empty($rawMaterialsInputs)) {
+            // Sync: Update, Add, dan Delete material yang tidak terkirim
+            $this->processRawMaterials($sop, $rawMaterialsInputs, $request);
+        } else {
+            // Jika array raw_materials kosong, hapus semua yang sudah ada
+            $sop->rawMaterials->each(function($rm) {
+                if($rm->image_path) Storage::disk('public')->delete($rm->image_path);
+                $rm->delete();
+            });
+        }
+
         return redirect()
             ->route('sop.edit', $sop)
             ->with('success', 'SOP berhasil diperbarui.');
     }
-
+    
     public function destroy(Sop $sop)
     {
+        // 1. Otorisasi
         if (!auth()->user()->isRole(['admin'])) {
             return back()->with('error', 'Hanya admin yang boleh menghapus SOP.');
         }
 
+        // 2. Hapus Foto Utama SOP
         $photos = is_array($sop->photos) ? $sop->photos : (json_decode($sop->photos, true) ?: []);
         foreach ($photos as $p) {
             if (!empty($p['path'])) Storage::disk('public')->delete($p['path']);
         }
 
+        // 3. INTEGRASI: Hapus Foto Raw Materials 🗑️
+        $sop->load('rawMaterials');
+        foreach ($sop->rawMaterials as $material) {
+            if ($material->image_path) {
+                // Hapus file fisik dari public disk
+                Storage::disk('public')->delete($material->image_path);
+            }
+        }
+
+        // 4. Hapus Record SOP dari Database
         $sop->delete();
+        
         return redirect()->route('sop.index')->with('success', 'SOP berhasil dihapus.');
     }
 
@@ -499,7 +551,7 @@ class SopController extends Controller
     // ==========================
     public function show(Sop $sop)
     {
-        $qrUrl = $sop->is_public && \Route::has('sop.public.show')
+        $qrUrl = $sop->is_public && Route::has('sop.public.show')
             ? route('sop.public.show', $sop)
             : route('sop.show', $sop);
 
@@ -513,7 +565,7 @@ class SopController extends Controller
     public function showJson(Sop $sop)
     {
         // ==== Normalisasi JSON field ====
-        $formSchema    = $sop->form_schema ?? [];
+        $formSchema     = $sop->form_schema ?? [];
         $builderSchema = $sop->builder_schema ?? [];
         $meta          = $sop->meta ?? [];
         $formValues = is_array($meta['form_values'] ?? null) ? $meta['form_values'] : [];
@@ -582,7 +634,7 @@ class SopController extends Controller
         $attributes = $sop->getAttributes();
 
         // Biar di _sop_attributes versi JSON-nya sudah didecode
-        $attributes['form_schema']    = $formSchema;
+        $attributes['form_schema']     = $formSchema;
         $attributes['builder_schema'] = $builderSchema;
         $attributes['meta']           = $meta;
         $attributes['photos_normalized'] = $photos;
@@ -783,31 +835,40 @@ class SopController extends Controller
     private function validatePayload(Request $request, ?Sop $sop = null)
     {
         $rules = [
-            'template_id'    => ['nullable', 'integer', 'exists:sop_templates,id'],
+            'template_id'      => ['nullable', 'integer', 'exists:sop_templates,id'],
 
-            'code'           => ['required', 'string', 'max:50'],
-            'title'          => ['required', 'string', 'max:255'],
-            'department'     => ['required', 'string', 'max:100'],
-            'product'        => ['nullable', 'string', 'max:100'],
-            'line'           => ['nullable', 'string', 'max:100'],
-            'content'        => ['nullable', 'string'],
-            'effective_from' => ['nullable', 'date'],
-            'effective_to'   => ['nullable', 'date', 'after_or_equal:effective_from'],
+            'code'             => ['required', 'string', 'max:50'],
+            'title'            => ['required', 'string', 'max:255'],
+            'department'       => ['required', 'string', 'max:100'],
+            'product'          => ['nullable', 'string', 'max:100'],
+            'line'             => ['nullable', 'string', 'max:100'],
+            'content'          => ['nullable', 'string'],
+            'effective_from'   => ['nullable', 'date'],
+            'effective_to'     => ['nullable', 'date', 'after_or_equal:effective_from'],
 
-            'photos'         => ['nullable', 'array', 'max:10'],
-            'photos.*'       => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-            'photo_desc'     => ['nullable', 'array'],
-            'photo_desc.*'   => ['nullable', 'string', 'max:255'],
+            'photos'           => ['nullable', 'array', 'max:10'],
+            'photos.*'         => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'photo_desc'       => ['nullable', 'array'],
+            'photo_desc.*'     => ['nullable', 'string', 'max:255'],
 
-            'builder_schema' => ['nullable', 'string'],
-            'extra_fields'   => ['nullable', 'string'],
+            'builder_schema'   => ['nullable', 'string'],
+            'extra_fields'     => ['nullable', 'string'],
 
             // dynamic form values
-            'form_values'    => ['nullable', 'array'],
-            'form_values.*'  => ['nullable', 'string', 'max:1000'],
+            'form_values'      => ['nullable', 'array'],
+            'form_values.*'    => ['nullable', 'string', 'max:1000'],
 
-            'pin'            => ['nullable', 'string', 'max:20'],
-            'is_public'      => ['nullable', 'boolean'],
+            'pin'              => ['nullable', 'string', 'max:20'],
+            'is_public'        => ['nullable', 'boolean'],
+            
+            // ATURAN RAW MATERIALS DITAMBAHKAN DI SINI
+            'raw_materials'            => ['nullable', 'array'],
+            'raw_materials.*.id'       => ['nullable', 'integer'], 
+            'raw_materials.*.name'     => ['required', 'string', 'max:255'],
+            'raw_materials.*.amount'   => ['nullable', 'numeric'],
+            'raw_materials.*.unit'     => ['nullable', 'string', 'max:50'],
+            'raw_materials.*.notes'    => ['nullable', 'string'],
+            'raw_materials.*.image'    => ['nullable', 'image', 'max:2048'],
         ];
 
         if ($sop && $sop->status !== 'approved') {
@@ -826,6 +887,7 @@ class SopController extends Controller
             'photos.max' => 'Maksimal 10 foto per SOP.',
             'photos.*.image' => 'File foto harus berupa gambar.',
             'photos.*.max' => 'Ukuran foto maksimal 4MB.',
+            'raw_materials.*.name.required' => 'Nama material wajib diisi.', // Custom message for raw material
         ]);
 
         if (!empty($validated['builder_schema'] ?? null)) {
@@ -912,5 +974,82 @@ class SopController extends Controller
 
         if (Schema::hasColumn('sops', $byCol)) $sop->{$byCol} = auth()->id();
         if (Schema::hasColumn('sops', $atCol)) $sop->{$atCol} = now();
+    }
+    
+    // ==========================
+    // HELPER RAW MATERIALS
+    // ==========================
+    
+    /**
+     * Handle Create/Update/Delete Raw Materials
+     * Logic:
+     * - Jika punya ID -> Update row
+     * - Jika tidak punya ID -> Create row baru
+     * - Jika ID ada di DB tapi tidak ada di input -> Delete (Logic ini opsional, tergantung UI. 
+     * Biasanya di UI repeater, item yang dihapus tidak dikirim ke server).
+     */
+    private function processRawMaterials(Sop $sop, array $inputs, Request $request)
+    {
+        // 1. Ambil ID material yang ada saat ini di DB untuk SOP ini
+        $sop->load('rawMaterials');
+        $existingIds = $sop->rawMaterials->pluck('id')->toArray();
+        $submittedIds = [];
+
+        foreach ($inputs as $index => $row) {
+            // Ambil ID dari input (jika edit)
+            $id = $row['id'] ?? null;
+            
+            // Siapkan data dasar
+            $dataToSave = [
+                'name'   => $row['name'] ?? 'Material',
+                'amount' => $row['amount'] ?? 0.00,
+                'unit'   => $row['unit'] ?? 'kg',
+                'notes'  => $row['notes'] ?? null,
+            ];
+
+            // Cek apakah ada file upload untuk index ini
+            if ($request->hasFile("raw_materials.$index.image")) {
+                $file = $request->file("raw_materials.$index.image");
+                $path = $file->store('raw_materials', 'public');
+                $dataToSave['image_path'] = $path;
+                
+                // Jika ini edit dan ada file baru, hapus file lama (opsional)
+                if ($id && in_array($id, $existingIds)) {
+                    $oldMat = SopRawMaterial::find($id);
+                    if ($oldMat && $oldMat->image_path) {
+                        Storage::disk('public')->delete($oldMat->image_path);
+                    }
+                }
+            }
+            
+            // --- PROSES SIMPAN / UPDATE ---
+            if ($id && in_array($id, $existingIds)) {
+                // UPDATE existing
+                SopRawMaterial::where('id', $id)->update($dataToSave);
+                $submittedIds[] = $id;
+            } else {
+                // CREATE new
+                // Pakai create relationship agar sop_id otomatis terisi
+                $sop->rawMaterials()->create($dataToSave);
+            }
+        }
+
+        // 2. Hapus material yang ada di DB tapi TIDAK ada di input (User menghapus row di frontend)
+        // Hanya berlaku jika kita sedang Update draft (bukan create revision baru, karena ID pasti beda)
+        if ($sop->wasRecentlyCreated === false) { 
+            $toDelete = array_diff($existingIds, $submittedIds);
+            if (!empty($toDelete)) {
+                $materialsToDelete = SopRawMaterial::whereIn('id', $toDelete)->get();
+                
+                foreach ($materialsToDelete as $m) {
+                    // Hapus file fisik Raw Material
+                    if ($m->image_path) {
+                        Storage::disk('public')->delete($m->image_path);
+                    }
+                    // Hapus record DB
+                    $m->delete();
+                }
+            }
+        }
     }
 }

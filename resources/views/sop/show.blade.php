@@ -32,23 +32,14 @@
                 continue;
             }
 
-            // Kalau sudah full URL -> pakai langsung
             if (Str::startsWith($path, ['http://', 'https://', '//'])) {
                 $url = $path;
             } else {
-                // BERSIHKAN prefix yang mungkin ikut ke DB:
-                // "sops/abc.png"
-                // "storage/sops/abc.png"
-                // "storage/app/public/sops/abc.png"
                 $clean = preg_replace('#^(storage/|storage/app/public/)+#', '', ltrim($path, '/'));
-                // hasil ideal: "sops/abc.png"
 
-                // BEDAIN LOCAL vs HOSTINGER TANPA NGOPREK .env
                 if (Str::contains($host, 'hostingersite.com')) {
-                    // PRODUKSI HOSTINGER → /storage/app/public/sops/...
                     $url = $base . '/storage/app/public/' . $clean;
                 } else {
-                    // LOCAL (Laravel default) → /storage/sops/...
                     $url = $base . '/storage/' . $clean;
                 }
             }
@@ -90,7 +81,7 @@
             ['label' => 'Logistik', 'ok' => $sop->is_approved_logistik],
         ];
 
-        // ===== URL QR (publik kalau ada routenya, kalau tidak fallback ke show biasa) =====
+        // ===== URL QR =====
         $hasPublicRoute = \Illuminate\Support\Facades\Route::has('sop.public.show');
         $qrUrl = $sop->is_public && $hasPublicRoute ? route('sop.public.show', $sop) : route('sop.show', $sop);
 
@@ -109,11 +100,9 @@
             $formValues = is_array($decoded) ? $decoded : [];
         }
 
-        // example safe getters
         $lotName = trim((string)($formValues['lot_name'] ?? '-'));
         $operatorName = trim((string)($formValues['operator_name'] ?? '-'));
 
-        // extra_fields = array of [label, value]
         $extraFields = [];
         if (!empty($meta['extra_fields']) && is_array($meta['extra_fields'])) {
             foreach ($meta['extra_fields'] as $row) {
@@ -132,7 +121,6 @@
             }
         }
 
-        // builder_schema bisa disimpan di meta['builder_schema'] atau kolom langsung
         $builderSchema = $meta['builder_schema'] ?? ($sop->builder_schema ?? []);
         if (is_string($builderSchema)) {
             $builderSchema = json_decode($builderSchema, true) ?: [];
@@ -140,6 +128,10 @@
         if (!is_array($builderSchema)) {
             $builderSchema = [];
         }
+        
+        // Raw Materials (memastikan sudah di-load di Controller)
+        $rawMaterials = $sop->rawMaterials ?? collect();
+
     @endphp
 
     <div class="space-y-5">
@@ -152,7 +144,7 @@
                         <div class="h-12 w-12 rounded-2xl bg-white/15 grid place-items-center shrink-0">
                             <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+                                      d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
                             </svg>
                         </div>
                         <div>
@@ -223,13 +215,13 @@
                         </div>
                     </div>
 
-                    {{-- NEW: Nama Lot --}}
+                    {{-- Nama Lot --}}
                     <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl px-3 py-2">
                         <div class="text-slate-500 mb-0.5">Nama Lot</div>
                         <div class="font-semibold text-slate-900 truncate">{{ $lotName ?: '-' }}</div>
                     </div>
 
-                    {{-- NEW: Nama Operator --}}
+                    {{-- Nama Operator --}}
                     <div class="bg-[#05727d]/5 border border-[#05727d]/20 rounded-xl px-3 py-2">
                         <div class="text-slate-500 mb-0.5">Nama Operator</div>
                         <div class="font-semibold text-slate-900 truncate">{{ $operatorName ?: '-' }}</div>
@@ -242,7 +234,7 @@
                 </div>
             </div>
         </div>
-
+        
         {{-- ================= FOTO + APPROVAL ================= --}}
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -261,10 +253,10 @@
                             <div class="aspect-video md:aspect-[16/7] grid place-items-center bg-white">
                                 <template x-for="(p, i) in {{ json_encode($photos) }}" :key="i">
                                     <div x-show="idx===i" x-transition.opacity
-                                        class="w-full h-full flex items-center justify-center">
+                                         class="w-full h-full flex items-center justify-center">
                                         <img :src="p.url"
-                                            class="max-h-[420px] w-auto object-contain rounded-lg shadow border border-slate-200"
-                                            alt="">
+                                             class="max-h-[420px] w-auto object-contain rounded-lg shadow border border-slate-200"
+                                             alt="">
                                     </div>
                                 </template>
                             </div>
@@ -396,7 +388,7 @@
                                 <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M12 11V7a4 4 0 10-8 0v4m0 0h8m-8 0a2 2 0 00-2 2v4a2 2 0 002 2h8a2 2 0 002-2v-4a2 2 0 00-2-2" />
+                                          d="M12 11V7a4 4 0 10-8 0v4m0 0h8m-8 0a2 2 0 00-2 2v4a2 2 0 002 2h8a2 2 0 002-2v-4a2 2 0 00-2-2" />
                                 </svg>
                             </div>
                             <div class="text-xs text-slate-700">
@@ -412,6 +404,71 @@
             </div>
 
         </div>
+
+        {{-- ================= RAW MATERIALS 🧱 (FOTO BESAR + TABEL DATA) ================= --}}
+        @if ($rawMaterials->count())
+            <div class="bg-white border border-[#05727d]/20 rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-semibold text-slate-900">Raw Materials</div>
+                        <div class="text-xs text-slate-500">Daftar bahan baku yang diperlukan</div>
+                    </div>
+                    <div class="bg-[#05727d]/10 text-[#05727d] px-2.5 py-1 rounded-full text-[10px] font-bold">
+                        {{ $rawMaterials->count() }} ITEM
+                    </div>
+                </div>
+
+                <div class="p-5">
+                    {{-- 1. BAGIAN FOTO BESAR (Layout Grid di atas) --}}
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        @foreach ($rawMaterials as $material)
+                            <div class="border border-slate-300 rounded-lg overflow-hidden flex flex-col bg-white shadow-sm">
+                                {{-- Header Nama Material --}}
+                                <div class="bg-slate-100 px-4 py-2 text-center font-bold text-slate-800 border-b border-slate-300 truncate text-sm">
+                                    {{ $material->name }}
+                                </div>
+                                {{-- Container Foto Besar (h-64 = 16rem = 256px) --}}
+                                <div class="h-64 bg-white flex items-center justify-center p-2 group">
+                                    @if($material->image_url)
+                                        <img src="{{ $material->image_url }}" 
+                                             class="h-full w-auto object-contain max-w-full transition-transform group-hover:scale-105" 
+                                             alt="{{ $material->name }}">
+                                    @else
+                                        <svg class="w-16 h-16 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4-4a3 3 0 014 0l4 4M2 20h20M2 12l5-5a3 3 0 014 0l3 3m7-7v8"/>
+                                        </svg>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    {{-- 2. BAGIAN TABEL DATA (Layout Tabel di bawah, dengan border tegas) --}}
+                    <div class="overflow-x-auto rounded-lg border border-slate-300">
+                        <table class="w-full text-sm text-left border-collapse">
+                            <thead class="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                                <tr>
+                                    <th class="px-4 py-3 w-16 text-center border-r border-slate-300">No</th>
+                                    <th class="px-4 py-3 border-r border-slate-300">Nama Raw Material</th>
+                                    <th class="px-4 py-3 w-48 border-r border-slate-300">Isi (kg/unit)</th>
+                                    <th class="px-4 py-3 text-center">Keterangan</th> </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-300 bg-white">
+                                @foreach ($rawMaterials as $index => $material)
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="px-4 py-3 text-center border-r border-slate-300 font-medium text-slate-600">{{ $index + 1 }}</td>
+                                        <td class="px-4 py-3 border-r border-slate-300 font-semibold text-slate-800">{{ $material->name }}</td>
+                                        <td class="px-4 py-3 border-r border-slate-300 font-mono text-slate-700">
+                                            {{ $material->amount ? $material->amount . ' ' . $material->unit : '-' }}
+                                        </td>
+                                        <td class="px-4 py-3 text-slate-600 italic text-center">{{ $material->notes ?: '-' }}</td> </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         {{-- ================= INFORMASI TAMBAHAN + STRUKTUR ================= --}}
         @if (count($extraFields) || count($builderSchema) || count($formValues))
@@ -492,7 +549,6 @@
                                                     $type = $item['type'] ?? 'checkbox';
                                                     $required = !empty($item['required']);
 
-                                                    // Tanpa match biar simpel
                                                     if ($type === 'number') {
                                                         $typeLabel = 'Angka';
                                                     } elseif ($type === 'text') {
